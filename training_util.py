@@ -11,10 +11,7 @@ sys.path.append('/content/drive/My Drive/中研院/repo/')
 from utilities import *
 from models import *
 from dataset_util import *
-<<<<<<< HEAD
 from eval_util import *
-=======
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
 
 import time
 import datetime
