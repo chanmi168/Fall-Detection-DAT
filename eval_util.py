@@ -32,7 +32,6 @@ import torch.nn.functional as F
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
-<<<<<<< HEAD
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
@@ -103,12 +102,6 @@ train_domain_acc, val_domain_acc, i_CV, outputdir):
 
 
 def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name, ax_idx):
-=======
-from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
-
-
-def model_output_diagnosis(model, src_loader, tgt_loader, param_dict, training_params, device, fig, col_name, ax_idx):
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
   src_data = src_loader.dataset.data
   src_labels = src_loader.dataset.labels
   tgt_data = tgt_loader.dataset.data
@@ -176,7 +169,6 @@ def model_output_diagnosis(model, src_loader, tgt_loader, param_dict, training_p
   # ax4.set_title('tgt_domain_sigmoid (src=0, tgt=1)')
   ax4.legend(loc='upper right')
 
-<<<<<<< HEAD
 def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, plt_title, i_CV, outputdir):
     if not os.path.exists(outputdir):
       os.makedirs(outputdir)
@@ -195,11 +187,6 @@ def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, s
 
 
 def model_features_diagnosis(model, src_loader, tgt_loader, device, ax, col_name):
-=======
-  # plt.show()
-
-def model_features_diagnosis(model, src_loader, tgt_loader, device):
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
   src_data = src_loader.dataset.data
   src_labels = src_loader.dataset.labels
   tgt_data = tgt_loader.dataset.data
@@ -225,7 +212,6 @@ def model_features_diagnosis(model, src_loader, tgt_loader, device):
   feature_np = StandardScaler().fit_transform(feature_np) # normalizing the features
   print('show standardize mean and std:', np.mean(feature_np),np.std(feature_np))
 
-<<<<<<< HEAD
   pca_features = PCA(n_components=10)
   principalComponents_features = pca_features.fit_transform(feature_np)
   # variance = pca_features.explained_variance_ratio_ #calculate variance ratios
@@ -255,22 +241,6 @@ def model_features_diagnosis(model, src_loader, tgt_loader, device):
   colors = ['r', 'g']
   # markers = ['_', 'o']
   markers = ['o', 'x']
-=======
-  pca_features = PCA(n_components=3)
-  principalComponents_features = pca_features.fit_transform(feature_np)
-
-  fig = plt.figure(figsize=(7, 7), dpi=100)
-  ax = fig.add_subplot(111)
-  ax.set_xlabel('Principal Component - 1',fontsize=20)
-  ax.set_ylabel('Principal Component - 2',fontsize=20)
-  ax.set_title("PCA of features extracted by Gf",fontsize=20)
-  ax.tick_params(axis='both', which='major', labelsize=12)
-
-  class_ids = [0, 1]
-  domain_ids = [0, 1]
-  colors = ['r', 'g']
-  markers = ['x', '.']
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
   legend_dict = {
       '00': 'adl_src',
       '01': 'adl_tgt',
@@ -282,7 +252,6 @@ def model_features_diagnosis(model, src_loader, tgt_loader, device):
 
   for class_id, marker in zip(class_ids,markers):
     for domain_id, color in zip(domain_ids,colors):
-<<<<<<< HEAD
       indicesToKeep = np.where((labels_np==class_id) & (domain_np==domain_id))[0]
 
       if class_id == 1:
@@ -416,80 +385,3 @@ def get_rep10_stats(inputdir, rep_n):
   return df_performance_table_all
 
 
-=======
-      # if class_id == 1:
-      #   markersize = 0
-      # else:
-      #   markersize = 1
-      indicesToKeep = np.where((labels_np==class_id) & (domain_np==domain_id))[0]
-      ax.scatter(principalComponents_features[indicesToKeep, 0], 
-                  principalComponents_features[indicesToKeep, 1],
-                  c = color, s = 50, marker=marker, label=legend_dict[str(class_id)+str(domain_id)])
-
-  ax.legend(prop={'size': 15})
-
-  plt.show()
-
-def model_features_diagnosis_3d(model, src_loader, tgt_loader, device):
-
-  src_data = src_loader.dataset.data
-  src_labels = src_loader.dataset.labels
-  tgt_data = tgt_loader.dataset.data
-  tgt_labels = tgt_loader.dataset.labels
-
-  src_data = src_data.to(device)
-  src_labels = src_labels.to(device).long()
-  tgt_data = tgt_data.to(device)
-  tgt_labels = tgt_labels.to(device).long()
-
-  src_domain_labels = torch.zeros(src_data.size()[0]).to(device).long()
-  tgt_domain_labels = torch.ones(tgt_data.size()[0]).to(device).long()
-
-  src_feature, src_class_out, src_domain_out = model(src_data)
-  tgt_feature, tgt_class_out, tgt_domain_out = model(tgt_data)
-
-  feature_np = torch.cat([src_feature, tgt_feature], dim=0).data.detach().cpu().numpy()
-  labels_np = torch.cat([src_labels, tgt_labels], dim=0).data.detach().cpu().numpy()
-  domain_np = np.concatenate((src_domain_labels.data.detach().cpu().numpy(), tgt_domain_labels.data.detach().cpu().numpy()), axis=0)
-
-  feature_np = StandardScaler().fit_transform(feature_np) # normalizing the features
-  print('show standardize mean and std:', np.mean(feature_np),np.std(feature_np))
-
-  pca_features = PCA(n_components=3)
-  principalComponents_features = pca_features.fit_transform(feature_np)
-
-  class_ids = [0, 1]
-  domain_ids = [0, 1]
-  colors = ['r', 'g']
-  markers = ['x', '.']
-  legend_dict = {
-      '00': 'adl_src',
-      '01': 'adl_tgt',
-      '10': 'fall_src',
-      '11': 'fall_tgt',
-  }
-
-  pt_label = ['']
-
-  fig = plt.figure(figsize=(10, 10), dpi=100)
-  ax = fig.add_subplot(111, projection='3d')
-  ax.set_xlabel('Principal Component - 1',fontsize=20)
-  ax.set_ylabel('Principal Component - 2',fontsize=20)
-  ax.set_zlabel('Principal Component - 3',fontsize=20)
-  ax.set_title("PCA of features extracted by Gf",fontsize=20)
-  markersize = 50
-  for class_id, marker in zip(class_ids,markers):
-    for domain_id, color in zip(domain_ids,colors):
-      indicesToKeep = np.where((labels_np==class_id) & (domain_np==domain_id))[0]
-      # if domain_id == 1:
-      #   markersize = 0
-      # else:
-      #   markersize = 50
-      ax.scatter(principalComponents_features[indicesToKeep, 0], 
-                 principalComponents_features[indicesToKeep, 1],
-                 principalComponents_features[indicesToKeep, 2],
-                 c = color, s = markersize, marker=marker,
-                 label=legend_dict[str(class_id)+str(domain_id)])
-
-  ax.legend(prop={'size': 15})
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda

@@ -46,13 +46,10 @@ class FallDataset(Dataset):
 
 def get_UMAFall_loader(inputdir, i_CV, batch_size, learning_rate):
   print('Working on get_UMAFall_loader...')
-<<<<<<< HEAD
 
   val_batch_size = 5000
   # val_batch_size = batch_size
 
-=======
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
   train_inputdir = inputdir+'/CV{}/train'.format(i_CV)
   val_inputdir = inputdir+'/CV{}/val'.format(i_CV)
 
@@ -85,24 +82,17 @@ def get_UMAFall_loader(inputdir, i_CV, batch_size, learning_rate):
                                             batch_size=batch_size, 
                                             shuffle=True)
   val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
-<<<<<<< HEAD
                                             batch_size=val_batch_size, 
-=======
-                                            batch_size=batch_size, 
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
                                             shuffle=False)
 
   return train_loader, val_loader
 
 def get_UPFall_loader(inputdir, i_CV, batch_size, learning_rate):
   print('Working on get_UPFall_loader...')
-<<<<<<< HEAD
 
   val_batch_size = 5000
   # val_batch_size = batch_size
 
-=======
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
   train_inputdir = inputdir+'/CV{}/train'.format(i_CV)
   val_inputdir = inputdir+'/CV{}/val'.format(i_CV)
 
@@ -135,11 +125,7 @@ def get_UPFall_loader(inputdir, i_CV, batch_size, learning_rate):
                                             batch_size=batch_size, 
                                             shuffle=True)
   val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
-<<<<<<< HEAD
                                             batch_size=val_batch_size, 
-=======
-                                            batch_size=batch_size, 
->>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
                                             shuffle=False)
 
   return train_loader, val_loader
