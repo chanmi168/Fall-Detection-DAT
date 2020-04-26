@@ -8,10 +8,10 @@ import os
 import sys
 sys.path.append('/content/drive/My Drive/中研院/repo/')
 
-from utilities import *
-from models import *
-from dataset_util import *
-from eval_util import *
+from falldetect.utilities import *
+from falldetect.models import *
+from falldetect.dataset_util import *
+from falldetect.eval_util import *
 
 import time
 import datetime
@@ -31,11 +31,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def train_epoch(train_loader, train_size, device, model, criterion, optimizer, epoch):
-  model.train()
+# def train_epoch(train_loader, train_size, device, model, criterion, optimizer, epoch):
+def train_epoch(train_loader, device, model, criterion, optimizer, epoch):
+  debug = False
 
+  model.train()
   total_train_loss = 0
-  train_TPTF = 0
+#   train_TPTN = 0
+  TP = 0
+  FP = 0
+  TN = 0
+  FN = 0
+#   predicted_true = 0
+
   for i, (data, labels) in enumerate(train_loader):
 
     data = data.to(device)
@@ -54,19 +62,59 @@ def train_epoch(train_loader, train_size, device, model, criterion, optimizer, e
     # total_train_loss += train_loss.data.numpy()
     total_train_loss += train_loss.data.detach().cpu().numpy()
     out_sigmoid = torch.sigmoid(class_out).data.detach().cpu().numpy()
-    train_pred = np.argmax(out_sigmoid, 1)
-    train_TPTF += (train_pred==labels.data.detach().cpu().numpy()).sum()
+    pred = np.argmax(out_sigmoid, 1)
+    labels_np = labels.data.detach().cpu().numpy()
 
+    TP += ((pred==1) & (labels_np==1)).sum()
+    FP += ((pred==1) & (labels_np==0)).sum()
+    TN += ((pred==0) & (labels_np==0)).sum()
+    FN += ((pred==0) & (labels_np==1)).sum()
+
+  train_size = train_loader.dataset.labels.detach().cpu().numpy().shape[0]
   train_loss = total_train_loss/train_size
-  train_acc = train_TPTF/train_size
+  acc = (TP+TN)/train_size
+  sensitivity = TP/(TP+FN)
+  specificity = TN/(TN+FP)
+  precision = TP/(TP+FP)
+  F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
 
-  return train_loss, train_acc
+  if debug:
+    print('show train_epoch results')
+    print('all samples n', train_size)
+    print('TP', TP)
+    print('FP', FP)
+    print('TN', TN)
+    print('FN', FN)
+    print('train_size', train_size)
+    print('acc', acc)
+    print('sensitivity', sensitivity)
+    print('precision', precision)
+    print('specificity', specificity)
+    print('F1', F1)
 
-def val_epoch(val_loader, val_size, device, model, criterion, optimizer, epoch):
+  performance_dict = {
+      'loss': train_loss,
+      'acc': acc,
+      'sensitivity': sensitivity,
+      'precision': precision,
+      'specificity': specificity,
+      'F1': F1,
+  }
+  return performance_dict
+#   return train_loss, train_acc
+
+# def val_epoch(val_loader, val_size, device, model, criterion, optimizer, epoch):
+def val_epoch(val_loader, device, model, criterion, optimizer, epoch, domain_name):
+  debug = False
+
   model.eval()
 
   total_val_loss = 0
-  val_TPTF = 0
+#   val_TPTF = 0
+  TP = 0
+  FP = 0
+  TN = 0
+  FN = 0
   for i, (data, labels) in enumerate(val_loader):
     data = data.to(device)
     labels = labels.to(device).long()
@@ -78,42 +126,90 @@ def val_epoch(val_loader, val_size, device, model, criterion, optimizer, epoch):
     
     total_val_loss += val_loss.data.detach().cpu().numpy()
     out_sigmoid = torch.sigmoid(class_out).data.detach().cpu().numpy()
-    val_pred = np.argmax(out_sigmoid, 1)
-    val_TPTF += (val_pred==labels.data.detach().cpu().numpy()).sum()
+    pred = np.argmax(out_sigmoid, 1)
+    labels_np = labels.data.detach().cpu().numpy()
 
+    TP += ((pred==1) & (labels_np==1)).sum()
+    FP += ((pred==1) & (labels_np==0)).sum()
+    TN += ((pred==0) & (labels_np==0)).sum()
+    FN += ((pred==0) & (labels_np==1)).sum()
+
+  val_size = val_loader.dataset.labels.detach().cpu().numpy().shape[0]
   val_loss = total_val_loss/val_size
-  val_acc = val_TPTF/val_size
+  acc = (TP+TN)/val_size
+  sensitivity = TP/(TP+FN)
+  specificity = TN/(TN+FP)
+  precision = TP/(TP+FP)
+  F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
 
-  return val_loss, val_acc
+  if debug:
+    print('show val_epoch results')
+    print('all samples n', val_size)
+    print('TP', TP)
+    print('FP', FP)
+    print('TN', TN)
+    print('FN', FN)
+    print('val_size', val_size)
+    print('acc', acc)
+    print('sensitivity', sensitivity)
+    print('precision', precision)
+    print('specificity', specificity)
+    print('F1', F1)
 
-def train_epoch_dann(src_loader, tgt_loader, src_train_size, tgt_train_size, device, 
-                        dann,
-                        class_criterion, domain_criterion, optimizer, epoch):
+  performance_dict = {
+      '{}_loss'.format(domain_name): val_loss,
+      '{}_acc'.format(domain_name): acc,
+      '{}_sensitivity'.format(domain_name): sensitivity,
+      '{}_precision'.format(domain_name): precision,
+      '{}_specificity'.format(domain_name): specificity,
+      '{}_F1'.format(domain_name): F1,
+  }
+  return performance_dict
+#     val_pred = np.argmax(out_sigmoid, 1)
+#     val_TPTF += (val_pred==labels.data.detach().cpu().numpy()).sum()
+
+#   val_loss = total_val_loss/val_size
+#   val_acc = val_TPTF/val_size
+
+#   return val_loss, val_acc
+
+# def train_epoch_dann(src_loader, tgt_loader, src_train_size, tgt_train_size, device, 
+#                         dann,
+#                         class_criterion, domain_criterion, optimizer, epoch):
+def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, epoch):
   dann.train()
 
-  total_train_loss = 0
+#   total_train_loss = 0
   total_src_class_loss = 0
   total_tgt_class_loss = 0
   total_src_domain_loss = 0
   total_tgt_domain_loss = 0
 
-  src_class_TPTN = 0
-  tgt_class_TPTN = 0
+#   src_class_TPTN = 0
+#   tgt_class_TPTN = 0
   domain_TPTN = 0
    # note that this is different from src_train_size as src_loader and 
    # tgt_loader have different sample size
-  src_train_count = 0
-  tgt_train_count = 0
-  train_size = src_train_size + tgt_train_size
+#   src_train_count = 0
+#   tgt_train_count = 0
+#   train_size = src_train_size + tgt_train_size
+	
+  src_TP = 0
+  src_FP = 0
+  src_TN = 0
+  src_FN = 0
+	
+  tgt_TP = 0
+  tgt_FP = 0
+  tgt_TN = 0
+  tgt_FN = 0
 
-  # print('show src_loader and tgt_loader size:', len(src_loader), len(tgt_loader))
   for i, (sdata, tdata) in enumerate(zip(src_loader, tgt_loader)):
-  # for i, sdata in enumerate(src_loader):
     src_data, src_labels = sdata
     tgt_data, tgt_labels = tdata
-    # print('show data and label size:', src_data.size()[0])
-    src_train_count += src_data.size()[0]
-    tgt_train_count += tgt_data.size()[0]
+
+#     src_train_count += src_data.size()[0]
+#     tgt_train_count += tgt_data.size()[0]
 
     src_data = src_data.to(device)
     src_labels = src_labels.to(device).long()
@@ -123,11 +219,7 @@ def train_epoch_dann(src_loader, tgt_loader, src_train_size, tgt_train_size, dev
     # prepare domain labels
     src_domain_labels = torch.zeros(src_data.size()[0]).to(device).long()
     tgt_domain_labels = torch.ones(tgt_data.size()[0]).to(device).long()
-    # print('show domain labels:', src_domain_labels, tgt_domain_labels)
 
-    # src_feature = (batch_size, feature_dim)
-    # src_class_out = (batch_size, 2)
-    # src_domain_out =(batch_size, 2)
     src_feature, src_class_out, src_domain_out = dann(src_data)
     tgt_feature, tgt_class_out, tgt_domain_out = dann(tgt_data)
 
@@ -158,35 +250,88 @@ def train_epoch_dann(src_loader, tgt_loader, src_train_size, tgt_train_size, dev
     optimizer.zero_grad()
     train_loss.backward()
     optimizer.step()
-
+	
+# 	total_train_loss += train_loss.data.detach().cpu().numpy()
     total_src_class_loss += src_class_loss.data.detach().cpu().numpy()
     total_tgt_class_loss += tgt_class_loss.data.detach().cpu().numpy()
     total_src_domain_loss += src_domain_loss.data.detach().cpu().numpy()
     total_tgt_domain_loss += tgt_domain_loss.data.detach().cpu().numpy()
 
-    src_class_TPTN += (src_class_pred==src_labels.data.detach().cpu().numpy()).sum()
-    tgt_class_TPTN += (tgt_class_pred==tgt_labels.data.detach().cpu().numpy()).sum()
+#     src_class_TPTN += (src_class_pred==src_labels.data.detach().cpu().numpy()).sum()
+#     tgt_class_TPTN += (tgt_class_pred==tgt_labels.data.detach().cpu().numpy()).sum()
     domain_TPTN += (src_domain_pred==src_domain_labels.data.detach().cpu().numpy()).sum()
     domain_TPTN += (tgt_domain_pred==tgt_domain_labels.data.detach().cpu().numpy()).sum()
+	
+    src_labels_np = src_labels.data.detach().cpu().numpy()
+    src_TP += ((src_class_pred==1) & (src_labels_np==1)).sum()
+    src_FP += ((src_class_pred==1) & (src_labels_np==0)).sum()
+    src_TN += ((src_class_pred==0) & (src_labels_np==0)).sum()
+    src_FN += ((src_class_pred==0) & (src_labels_np==1)).sum()
+	
+    tgt_labels_np = tgt_labels.data.detach().cpu().numpy()
+    tgt_TP += ((tgt_class_pred==1) & (tgt_labels_np==1)).sum()
+    tgt_FP += ((tgt_class_pred==1) & (tgt_labels_np==0)).sum()
+    tgt_TN += ((tgt_class_pred==0) & (tgt_labels_np==0)).sum()
+    tgt_FN += ((tgt_class_pred==0) & (tgt_labels_np==1)).sum()
     # print(class_pred)
     # print(train_loss)
 
-  train_count = src_train_count + tgt_train_count
-  # train_loss_avg = total_train_loss/train_count
-  src_class_loss_avg = total_src_class_loss/src_train_count
-  tgt_class_loss_avg = total_tgt_class_loss/tgt_train_count
+#   train_count = src_train_count + tgt_train_count
+#   src_class_loss_avg = total_src_class_loss/src_train_count
+#   tgt_class_loss_avg = total_tgt_class_loss/tgt_train_count
 
-  src_domain_loss_avg = total_src_domain_loss/src_train_count
-  tgt_domain_loss_avg = total_tgt_domain_loss/tgt_train_count
-  train_loss_avg = src_class_loss_avg + theta * (src_domain_loss_avg + tgt_domain_loss_avg)
+#   src_domain_loss_avg = total_src_domain_loss/src_train_count
+#   tgt_domain_loss_avg = total_tgt_domain_loss/tgt_train_count
+#   train_loss_avg = src_class_loss_avg + theta * (src_domain_loss_avg + tgt_domain_loss_avg)
 
-  src_class_acc = src_class_TPTN/src_train_count
-  tgt_class_acc = tgt_class_TPTN/tgt_train_count
-  domain_acc = domain_TPTN/train_count
+#   src_class_acc = src_class_TPTN/src_train_count
+#   tgt_class_acc = tgt_class_TPTN/tgt_train_count
+#   domain_acc = domain_TPTN/train_count
 
-  return train_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc
 
-def val_epoch_dann(src_loader, tgt_loader, src_val_size, tgt_val_size, device, 
+  src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  src_class_loss = total_src_class_loss/src_size
+  src_domain_loss = total_src_domain_loss/src_size
+  src_class_acc = (src_TP+src_TN)/src_size
+  src_sensitivity = src_TP/(src_TP+src_FN)
+  src_specificity = src_TN/(src_TN+src_FP)
+  src_precision = src_TP/(src_TP+src_FP)
+  src_F1 = 2 * (src_precision * src_sensitivity) / (src_precision + src_sensitivity)
+
+  tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  tgt_class_loss = total_tgt_class_loss/tgt_size
+  tgt_domain_loss = total_tgt_domain_loss/tgt_size
+  tgt_class_acc = (tgt_TP+tgt_TN)/tgt_size
+  tgt_sensitivity = tgt_TP/(tgt_TP+tgt_FN)
+  tgt_specificity = tgt_TN/(tgt_TN+tgt_FP)
+  tgt_precision = tgt_TP/(tgt_TP+tgt_FP)
+  tgt_F1 = 2 * (tgt_precision * tgt_sensitivity) / (tgt_precision + tgt_sensitivity)
+
+  domain_acc = domain_TPTN/(src_size+tgt_size)
+#   train_loss = total_train_loss/(src_size+tgt_size)
+
+  performance_dict = {
+      'src_class_loss': src_class_loss,
+      'src_domain_loss': src_domain_loss,
+      'src_class_acc': src_class_acc,
+      'src_sensitivity': src_sensitivity,
+      'src_precision': src_precision,
+      'src_specificity': src_specificity,
+      'src_F1': src_F1,
+      'tgt_class_loss': tgt_class_loss,
+      'tgt_domain_loss': tgt_domain_loss,
+      'tgt_class_acc': tgt_class_acc,
+      'tgt_sensitivity': tgt_sensitivity,
+      'tgt_precision': tgt_precision,
+      'tgt_specificity': tgt_specificity,
+      'tgt_F1': tgt_F1,
+	  'domain_acc': domain_acc,
+  }
+
+  return performance_dict
+#   return train_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc
+
+def val_epoch_dann(src_loader, tgt_loader, device, 
                      dann,
                      class_criterion, domain_criterion, epoch):
 
@@ -203,17 +348,27 @@ def val_epoch_dann(src_loader, tgt_loader, src_val_size, tgt_val_size, device,
   domain_TPTN = 0
    # note that this is different from src_val_size as src_loader and 
    # tgt_loader have different sample size
-  src_val_count = 0
-  tgt_val_count = 0
-  val_size = src_val_size + tgt_val_size
+#   src_val_count = 0
+#   tgt_val_count = 0
+#   val_size = src_val_size + tgt_val_size
+	
+  src_TP = 0
+  src_FP = 0
+  src_TN = 0
+  src_FN = 0
+	
+  tgt_TP = 0
+  tgt_FP = 0
+  tgt_TN = 0
+  tgt_FN = 0
 
   # print('show loader size:', len(src_loader), len(tgt_loader))
   for i, (sdata, tdata) in enumerate(zip(src_loader, tgt_loader)):
   # for i, sdata in enumerate(src_loader):
     src_data, src_labels = sdata
     tgt_data, tgt_labels = tdata
-    src_val_count += src_data.size()[0]
-    tgt_val_count += tgt_data.size()[0]
+#     src_val_count += src_data.size()[0]
+#     tgt_val_count += tgt_data.size()[0]
 
     src_data = src_data.to(device)
     src_labels = src_labels.to(device).long()
@@ -250,7 +405,7 @@ def val_epoch_dann(src_loader, tgt_loader, src_val_size, tgt_val_size, device,
     theta = 1
     val_loss = src_class_loss + theta * domain_loss
 
-    # total_class_loss += src_class_loss.data.numpy()
+#     total_class_loss += src_class_loss.data.numpy()
     total_src_class_loss += src_class_loss.data.detach().cpu().numpy()
     total_tgt_class_loss += tgt_class_loss.data.detach().cpu().numpy()
     total_src_domain_loss += src_domain_loss.data.detach().cpu().numpy()
@@ -260,29 +415,83 @@ def val_epoch_dann(src_loader, tgt_loader, src_val_size, tgt_val_size, device,
     tgt_class_TPTN += (tgt_class_pred==tgt_labels.data.detach().cpu().numpy()).sum()
     domain_TPTN += (src_domain_pred==src_domain_labels.data.detach().cpu().numpy()).sum()
     domain_TPTN += (tgt_domain_pred==tgt_domain_labels.data.detach().cpu().numpy()).sum()
+	
+    src_labels_np = src_labels.data.detach().cpu().numpy()
+    src_TP += ((src_class_pred==1) & (src_labels_np==1)).sum()
+    src_FP += ((src_class_pred==1) & (src_labels_np==0)).sum()
+    src_TN += ((src_class_pred==0) & (src_labels_np==0)).sum()
+    src_FN += ((src_class_pred==0) & (src_labels_np==1)).sum()
+	
+    tgt_labels_np = tgt_labels.data.detach().cpu().numpy()
+    tgt_TP += ((tgt_class_pred==1) & (tgt_labels_np==1)).sum()
+    tgt_FP += ((tgt_class_pred==1) & (tgt_labels_np==0)).sum()
+    tgt_TN += ((tgt_class_pred==0) & (tgt_labels_np==0)).sum()
+    tgt_FN += ((tgt_class_pred==0) & (tgt_labels_np==1)).sum()
+    # print(class_pred)
 
 
-  val_count = src_val_count + tgt_val_count
-  src_class_loss_avg = total_src_class_loss/src_val_count
-  tgt_class_loss_avg = total_tgt_class_loss/tgt_val_count
-  src_domain_loss_avg = total_src_domain_loss/src_val_count
-  tgt_domain_loss_avg = total_tgt_domain_loss/tgt_val_count
-  val_loss_avg = src_class_loss_avg + theta * (src_domain_loss_avg + tgt_domain_loss_avg)
+#   val_count = src_val_count + tgt_val_count
+#   src_class_loss_avg = total_src_class_loss/src_val_count
+#   tgt_class_loss_avg = total_tgt_class_loss/tgt_val_count
+#   src_domain_loss_avg = total_src_domain_loss/src_val_count
+#   tgt_domain_loss_avg = total_tgt_domain_loss/tgt_val_count
+#   val_loss_avg = src_class_loss_avg + theta * (src_domain_loss_avg + tgt_domain_loss_avg)
 
-  src_class_acc = src_class_TPTN/src_val_count
-  tgt_class_acc = tgt_class_TPTN/tgt_val_count
-  domain_acc = domain_TPTN/val_count
-  # print('domain_acc:', domain_TPTN, val_count, domain_acc)
-  # sys.exit()
+#   src_class_acc = src_class_TPTN/src_val_count
+#   tgt_class_acc = tgt_class_TPTN/tgt_val_count
+#   domain_acc = domain_TPTN/val_count
 
-  return val_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc
+
+  src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  src_class_loss = total_src_class_loss/src_size
+  src_domain_loss = total_src_domain_loss/src_size
+  src_class_acc = (src_TP+src_TN)/src_size
+  src_sensitivity = src_TP/(src_TP+src_FN)
+  src_specificity = src_TN/(src_TN+src_FP)
+  src_precision = src_TP/(src_TP+src_FP)
+  src_F1 = 2 * (src_precision * src_sensitivity) / (src_precision + src_sensitivity)
+
+  tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  tgt_class_loss = total_tgt_class_loss/tgt_size
+  tgt_domain_loss = total_tgt_domain_loss/tgt_size
+  tgt_class_acc = (tgt_TP+tgt_TN)/tgt_size
+  tgt_sensitivity = tgt_TP/(tgt_TP+tgt_FN)
+  tgt_specificity = tgt_TN/(tgt_TN+tgt_FP)
+  tgt_precision = tgt_TP/(tgt_TP+tgt_FP)
+  tgt_F1 = 2 * (tgt_precision * tgt_sensitivity) / (tgt_precision + tgt_sensitivity)
+
+  domain_acc = domain_TPTN/(src_size+tgt_size)
+
+  performance_dict = {
+      'src_class_loss': src_class_loss,
+      'src_domain_loss': src_domain_loss,
+      'src_class_acc': src_class_acc,
+      'src_sensitivity': src_sensitivity,
+      'src_precision': src_precision,
+      'src_specificity': src_specificity,
+      'src_F1': src_F1,
+      'tgt_class_loss': tgt_class_loss,
+      'tgt_domain_loss': tgt_domain_loss,
+      'tgt_class_acc': tgt_class_acc,
+      'tgt_sensitivity': tgt_sensitivity,
+      'tgt_precision': tgt_precision,
+      'tgt_specificity': tgt_specificity,
+      'tgt_F1': tgt_F1,
+	  'domain_acc': domain_acc
+  }
+#   display(performance_dict)
+  return performance_dict
+
+#   return val_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc
 
 def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir): 
   show_train_log = False
+#   show_diagnosis_plt = False
 
   if not os.path.exists(outputdir):
-      os.makedirs(outputdir)
+    os.makedirs(outputdir)
       
+  # TODO: don't need to extract training_params
   classes_n = training_params['classes_n']
   CV_n = training_params['CV_n']
   num_epochs = training_params['num_epochs']
@@ -291,9 +500,17 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
   learning_rate = training_params['learning_rate']
   extractor_type = training_params['extractor_type']
   device = training_params['device']
+  show_diagnosis_plt = training_params['show_diagnosis_plt']
 
-  df_performance = pd.DataFrame(columns=['i_CV',
-                                          'train_loss','train_acc','val_loss','val_acc', 'tgt_val_loss', 'tgt_val_acc'])
+
+#   df_performance = pd.DataFrame(columns=['i_CV',
+#                                           'train_loss','train_acc','val_loss','val_acc', 'tgt_val_loss', 'tgt_val_acc'])
+  df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
+                                columns=['i_CV',
+                                         'val_src_acc','val_tgt_acc',
+                                         'val_src_sensitivity','val_tgt_sensitivity',
+                                         'val_src_precision','val_tgt_precision',
+                                         'val_src_F1','val_tgt_F1'])
 
   src_dataset_name = src_name.split('_')[0]
   src_sensor_loc = src_name.split('_')[1]
@@ -304,15 +521,21 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
   src_inputdir = inputdir + '{}/{}/'.format(src_dataset_name, src_sensor_loc)
   tgt_inputdir = inputdir + '{}/{}/'.format(tgt_dataset_name, tgt_sensor_loc)
 
-  if 'UMAFall' in src_name:
-    get_src_loader = get_UMAFall_loader
-  else:
-    get_src_loader = get_UPFall_loader
+#   if 'UMAFall' in src_name:
+#     get_src_loader = get_UMAFall_loader
+#   elif 'UPFall' in src_name:
+#     get_src_loader = get_UPFall_loader
+#   elif 'SFDLA' in src_name:
+#     get_src_loader = get_SFDLA_loader
 
-  if 'UPFall' in tgt_name:
-    get_tgt_loader = get_UPFall_loader
-  else:
-    get_tgt_loader = get_UMAFall_loader
+#   if 'UPFall' in tgt_name:
+#     get_tgt_loader = get_UPFall_loader
+#   elif 'UMAFall' in tgt_name:
+#     get_tgt_loader = get_UMAFall_loader
+#   elif 'SFDLA' in tgt_name:
+#     get_tgt_loader = get_SFDLA_loader
+  get_src_loader = get_data_loader
+  get_tgt_loader = get_data_loader
 
   for i_CV in range(CV_n):
     print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
@@ -331,20 +554,19 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
     tgt_input_dim = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
 
     # 2. prepare model
-    # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # loss and optimizer
-    class_criterion = nn.CrossEntropyLoss()
-
-    # 3. fit the model
     total_step = len(src_train_loader)
 
-    train_loss_avg_epochs = np.zeros(num_epochs)
-    train_class_acc_epochs = np.zeros(num_epochs)
-    val_src_loss_avg_epochs = np.zeros(num_epochs)
-    val_src_class_acc_epochs = np.zeros(num_epochs)
-    val_tgt_loss_avg_epochs = np.zeros(num_epochs)
-    val_tgt_class_acc_epochs = np.zeros(num_epochs)
+#     train_loss_avg_epochs = np.zeros(num_epochs)
+#     train_class_acc_epochs = np.zeros(num_epochs)
+#     val_src_loss_avg_epochs = np.zeros(num_epochs)
+#     val_src_class_acc_epochs = np.zeros(num_epochs)
+#     val_tgt_loss_avg_epochs = np.zeros(num_epochs)
+#     val_tgt_class_acc_epochs = np.zeros(num_epochs)
+	
+    train_performance_dict_list = list( {} for i in range(num_epochs) )
+    val_src_performance_dict_list = list( {} for i in range(num_epochs) )
+    val_tgt_performance_dict_list = list( {} for i in range(num_epochs) )
 
     # model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
     if extractor_type == 'CNN':
@@ -360,38 +582,64 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
       model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
 
     model_name = model.__class__.__name__
+    # loss and optimizer
+    class_criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.01)
 
-    model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-    model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+    if show_diagnosis_plt:
+      model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+      model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 
+    # 3. fit the model
     for epoch in range(num_epochs):
-      train_loss, train_acc = train_epoch(src_train_loader, src_train_size, device, model, class_criterion, optimizer, epoch)
-      train_loss_avg_epochs[epoch] = train_loss
-      train_class_acc_epochs[epoch] = train_acc
+#       train_loss, train_acc = train_epoch(src_train_loader, src_train_size, device, model, class_criterion, optimizer, epoch)
+#       train_loss_avg_epochs[epoch] = train_loss
+#       train_class_acc_epochs[epoch] = train_acc
+      train_performance_dict = train_epoch(src_train_loader, device, model, class_criterion, optimizer, epoch)
+      train_performance_dict_list[epoch] = train_performance_dict
 
-      val_loss, val_acc = val_epoch(src_val_loader, src_val_size, device, model, class_criterion, optimizer, epoch)
-      val_src_loss_avg_epochs[epoch] = val_loss
-      val_src_class_acc_epochs[epoch] = val_acc
+#       val_loss, val_acc = val_epoch(src_val_loader, src_val_size, device, model, class_criterion, optimizer, epoch)
+#       val_src_loss_avg_epochs[epoch] = val_loss
+#       val_src_class_acc_epochs[epoch] = val_acc
+      val_src_performance_dict = val_epoch(src_val_loader, device, model, class_criterion, optimizer, epoch, 'src')
+      val_src_performance_dict_list[epoch] = val_src_performance_dict
 
-      tgt_val_loss, tgt_val_acc = val_epoch(tgt_val_loader, tgt_val_size, device, model, class_criterion, optimizer, epoch)
-      val_tgt_loss_avg_epochs[epoch] = tgt_val_loss
-      val_tgt_class_acc_epochs[epoch] = tgt_val_acc
+#       tgt_val_loss, tgt_val_acc = val_epoch(tgt_val_loader, tgt_val_size, device, model, class_criterion, optimizer, epoch)
+#       val_tgt_loss_avg_epochs[epoch] = tgt_val_loss
+#       val_tgt_class_acc_epochs[epoch] = tgt_val_acc
+      val_tgt_performance_dict = val_epoch(tgt_val_loader, device, model, class_criterion, optimizer, epoch, 'tgt')
+      val_tgt_performance_dict_list[epoch] = val_tgt_performance_dict
 
-      if show_train_log:
-        print('Epoch {}'.format(epoch))
-        print('Train Loss: {:.6f}, Train ACC: {:.6f}, Val loss = {:.6f}, Val ACC: {:.6f}'.
-              format(train_loss, train_acc, val_loss, val_acc))
-        print('Target Val loss = {:.6f}, Val ACC: {:.6f}'.format(tgt_val_loss, tgt_val_acc))
+#       if show_train_log:
+#         print('Epoch {}'.format(epoch))
+#         print('Train Loss: {:.6f}, Train ACC: {:.6f}, Val loss = {:.6f}, Val ACC: {:.6f}'.
+#               format(train_loss, train_acc, val_loss, val_acc))
+#         print('Target Val loss = {:.6f}, Val ACC: {:.6f}'.format(tgt_val_loss, tgt_val_acc))
 
       # 4. store the performance of the model at the last epoch
-      df_performance.loc[i_CV] = [i_CV, train_loss, train_acc, val_loss, val_acc, tgt_val_loss, tgt_val_acc]
+#     df_performance.loc[i_CV] = [i_CV, train_loss, train_acc, val_loss, val_acc, tgt_val_loss, tgt_val_acc]
+#     df_performance.loc[i_CV] = [i_CV, train_performance_dict_list[epoch]['train_loss'], train_performance_dict_list[epoch]['train_acc'], val_src_performance_dict_list[epoch]['val_src_loss'], val_src_performance_dict_list[epoch]['val_src_acc'], val_tgt_performance_dict_list[epoch]['val_tgt_loss'], val_tgt_performance_dict_list[epoch]['val_tgt_acc']]
+#     df_performance.loc[i_CV] = [i_CV, train_performance_dict_list[epoch]['train_loss'], train_performance_dict_list[epoch]['train_acc'], val_src_performance_dict_list[epoch]['val_src_loss'], val_src_performance_dict_list[epoch]['val_src_acc'], val_tgt_performance_dict_list[epoch]['val_tgt_loss'], val_tgt_performance_dict_list[epoch]['val_tgt_acc']]
+
+#                                           'train_loss','train_acc','val_loss','val_acc', 'tgt_val_loss', 'tgt_val_acc'])
+#     df_performance.loc[i_CV,'i_CV'] = i_CV
+    df_performance.loc[i_CV,['i_CV',
+							 'val_src_acc','val_tgt_acc',
+							 'val_src_sensitivity','val_tgt_sensitivity',
+							 'val_src_precision','val_tgt_precision',
+							 'val_src_F1','val_tgt_F1']] = [i_CV, 
+															val_src_performance_dict_list[epoch]['src_acc'], val_tgt_performance_dict_list[epoch]['tgt_acc'],
+															val_src_performance_dict_list[epoch]['src_sensitivity'], val_tgt_performance_dict_list[epoch]['tgt_sensitivity'], 
+															val_src_performance_dict_list[epoch]['src_precision'], val_tgt_performance_dict_list[epoch]['tgt_precision'], 
+															val_src_performance_dict_list[epoch]['src_F1'], val_tgt_performance_dict_list[epoch]['tgt_F1']]
+	
     
-    model.eval()
-    baseline_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_src_loss_avg_epochs, val_tgt_loss_avg_epochs, train_class_acc_epochs, val_src_class_acc_epochs, val_tgt_class_acc_epochs, i_CV, outputdir)
+#     model.eval()
+#     baseline_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_src_loss_avg_epochs, val_tgt_loss_avg_epochs, train_class_acc_epochs, val_src_class_acc_epochs, val_tgt_class_acc_epochs, i_CV, outputdir)
+    if show_diagnosis_plt:
+      baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, i_CV, outputdir)
 
     print('-----------------Exporting pytorch model-----------------')
-    # loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
     if extractor_type == 'CNN':
       loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
     elif extractor_type == 'CNNLSTM':
@@ -405,28 +653,30 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
       loaded_model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
     # loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
 
-    loaded_model.eval()
+#     loaded_model.eval()
     export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
 
     print('-----------------Evaluating trained model-----------------')
-
-    model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-    model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+    if show_diagnosis_plt:
+      model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+      model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
 
   # 5. export model performance as df
+# 	TODO: probably remove this
   print('---------------Exporting model performance---------------')
   export_perofmance(df_performance, CV_n, outputdir)
 
-  print('src val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_loss'], df_performance.loc['std']['val_loss']))
-  print('src val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_acc'], df_performance.loc['std']['val_acc']))
+#   print('src val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_loss'], df_performance.loc['std']['val_loss']))
+  print('src val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_acc'], df_performance.loc['std']['val_src_acc']))
   
-  print('tgt val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_loss'], df_performance.loc['std']['tgt_val_loss']))
-  print('tgt val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_acc'], df_performance.loc['std']['tgt_val_acc']))
+#   print('tgt val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_loss'], df_performance.loc['std']['tgt_val_loss']))
+  print('tgt val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_acc'], df_performance.loc['std']['val_tgt_acc']))
 
   # print('=========================================================')
 
   # 6. export notebook parameters as dict
   # datetime object containing current date and time
+# 	TODO: probably remove this
   print('--------------Exporting notebook parameters--------------')
   now = datetime.now()
   dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
@@ -455,10 +705,16 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
 
   num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-  return (df_performance.loc['mean']['val_acc'], df_performance.loc['std']['val_acc']), (df_performance.loc['mean']['tgt_val_acc'], df_performance.loc['std']['tgt_val_acc']), num_params
+#   return (df_performance.loc['mean']['val_acc'], df_performance.loc['std']['val_acc']), (df_performance.loc['mean']['tgt_val_acc'], df_performance.loc['std']['tgt_val_acc']), num_params
+#   return (df_performance.loc['mean']['val_acc'], df_performance.loc['std']['val_acc']), (df_performance.loc['mean']['tgt_val_acc'], df_performance.loc['std']['tgt_val_acc']), num_params
+
+#   return (df_performance.loc['mean']['val_src_sensitivity'], df_performance.loc['std']['val_src_sensitivity']), (df_performance.loc['mean']['val_tgt_sensitivity'], df_performance.loc['std']['val_tgt_sensitivity']), num_params
+
+  return df_performance, num_params
 
 def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir): 
 # def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir): 
+#   show_diagnosis_plt = False
 
   if not os.path.exists(outputdir):
       os.makedirs(outputdir)
@@ -471,14 +727,22 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
   learning_rate = training_params['learning_rate']
   extractor_type = training_params['extractor_type']
   device = training_params['device']
+  show_diagnosis_plt = training_params['show_diagnosis_plt']
 
+#   df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
+#                                 columns=['i_CV',
+#                                         'train_src_class_loss','train_tgt_class_loss','train_src_domain_loss','train_tgt_domain_loss', 
+#                                         'train_src_class_acc','train_tgt_class_acc','train_domain_acc',
+#                                         'val_src_class_loss','val_tgt_class_loss','val_src_domain_loss','val_tgt_domain_loss',
+#                                         'val_src_class_acc','val_tgt_class_acc','val_domain_acc'])
   df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
-                                columns=['i_CV',
-                                        'train_src_class_loss','train_tgt_class_loss','train_src_domain_loss','train_tgt_domain_loss', 
-                                        'train_src_class_acc','train_tgt_class_acc','train_domain_acc',
-                                        'val_src_class_loss','val_tgt_class_loss','val_src_domain_loss','val_tgt_domain_loss',
-                                        'val_src_class_acc','val_tgt_class_acc','val_domain_acc'])
-
+                                columns=['i_CV', 
+							 'val_src_class_acc','val_tgt_class_acc',
+							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
+							 'val_src_class_precision','val_tgt_class_precision',
+							 'val_src_class_F1','val_tgt_class_F1',
+							 'val_domain_acc',])
+	
   src_dataset_name = src_name.split('_')[0]
   src_sensor_loc = src_name.split('_')[1]
 
@@ -488,15 +752,43 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
   src_inputdir = inputdir + '{}/{}/'.format(src_dataset_name, src_sensor_loc)
   tgt_inputdir = inputdir + '{}/{}/'.format(tgt_dataset_name, tgt_sensor_loc)
 
-  if 'UMAFall' in src_name:
-    get_src_loader = get_UMAFall_loader
-  else:
-    get_src_loader = get_UPFall_loader
+#   if 'UMAFall' in src_name:
+#     get_src_loader = get_UMAFall_loader
+#   else:
+#     get_src_loader = get_UPFall_loader
 
-  if 'UPFall' in tgt_name:
-    get_tgt_loader = get_UPFall_loader
-  else:
-    get_tgt_loader = get_UMAFall_loader
+#   if 'UPFall' in tgt_name:
+#     get_tgt_loader = get_UPFall_loader
+#   else:
+#     get_tgt_loader = get_UMAFall_loader
+	
+#   if 'UMAFall' in src_name:
+#     get_src_loader = get_UMAFall_loader
+#   elif 'UPFall' in src_name:
+#     get_src_loader = get_UPFall_loader
+
+#   if 'UPFall' in tgt_name:
+#     get_tgt_loader = get_UPFall_loader
+#   elif 'UMAFall' in tgt_name:
+#     get_tgt_loader = get_UMAFall_loader
+	
+#   if 'UMAFall' in src_name:
+#     get_src_loader = get_UMAFall_loader
+#   elif 'UPFall' in src_name:
+#     get_src_loader = get_UPFall_loader
+#   elif 'SFDLA' in src_name:
+#     get_src_loader = get_SFDLA_loader
+
+#   if 'UPFall' in tgt_name:
+#     get_tgt_loader = get_UPFall_loader
+#   elif 'UMAFall' in tgt_name:
+#     get_tgt_loader = get_UMAFall_loader
+#   elif 'SFDLA' in tgt_name:
+#     get_tgt_loader = get_SFDLA_loader
+
+  get_src_loader = get_data_loader
+  get_tgt_loader = get_data_loader
+	
 
   for i_CV in range(CV_n):
     print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
@@ -517,23 +809,23 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
     # 2. prepare model
     # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # loss and optimizer
-    class_criterion = nn.CrossEntropyLoss()
-    domain_criterion = nn.CrossEntropyLoss()
+
 
     # 3. fit the model
     total_step = len(src_train_loader)
 
-    train_loss_avg_epochs = np.zeros(num_epochs)
-    train_src_class_acc_epochs = np.zeros(num_epochs)
-    train_tgt_class_acc_epochs = np.zeros(num_epochs)
-    train_domain_acc = np.zeros(num_epochs)
-    val_loss_avg_epochs = np.zeros(num_epochs)
-    val_src_class_acc_epochs = np.zeros(num_epochs)
-    val_tgt_class_acc_epochs = np.zeros(num_epochs)
-    val_domain_acc = np.zeros(num_epochs)
+#     train_loss_avg_epochs = np.zeros(num_epochs)
+#     train_src_class_acc_epochs = np.zeros(num_epochs)
+#     train_tgt_class_acc_epochs = np.zeros(num_epochs)
+#     train_domain_acc = np.zeros(num_epochs)
+#     val_loss_avg_epochs = np.zeros(num_epochs)
+#     val_src_class_acc_epochs = np.zeros(num_epochs)
+#     val_tgt_class_acc_epochs = np.zeros(num_epochs)
+#     val_domain_acc = np.zeros(num_epochs)
+	
+    train_performance_dict_list = list( {} for i in range(num_epochs) )
+    val_performance_dict_list = list( {} for i in range(num_epochs) )
 
-    df_performance.loc[i_CV,'i_CV'] = i_CV
 
     if extractor_type == 'CNN':
       model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
@@ -550,45 +842,76 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
     # model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
     model_name = model.__class__.__name__
     train_size = src_train_size+tgt_train_size
+    # loss and optimizer
+    class_criterion = nn.CrossEntropyLoss()
+    domain_criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.01)
 
-    model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-    model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+    if show_diagnosis_plt:
+      model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+      model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 
     for epoch in range(num_epochs):
-      fitting_outputs = train_epoch_dann(src_train_loader, tgt_train_loader, src_train_size, tgt_train_size, device, 
+      train_performance_dict_list[epoch] = train_epoch_dann(src_train_loader, tgt_train_loader, device, 
                                           model, 
                                           class_criterion, domain_criterion, optimizer, epoch)
-      
-      train_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc = fitting_outputs
-
-      train_loss_avg_epochs[epoch] = train_loss_avg
-      train_src_class_acc_epochs[epoch] = src_class_acc
-      train_tgt_class_acc_epochs[epoch] = tgt_class_acc
-      train_domain_acc[epoch] = domain_acc
-      df_performance.loc[i_CV,['train_src_class_loss','train_tgt_class_loss','train_src_domain_loss','train_tgt_domain_loss', 
-                                'train_src_class_acc','train_tgt_class_acc','train_domain_acc']] = [src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc]
-
-      val_outputs = val_epoch_dann(src_val_loader, tgt_val_loader, src_val_size, tgt_val_size, device, 
+	
+      val_performance_dict_list[epoch] = val_epoch_dann(src_val_loader, tgt_val_loader, device, 
                                       model,
                                       class_criterion, domain_criterion, epoch)
 
-      val_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc = val_outputs
+#       fitting_outputs = train_epoch_dann(src_train_loader, tgt_train_loader, src_train_size, tgt_train_size, device, 
+#                                           model, 
+#                                           class_criterion, domain_criterion, optimizer, epoch)
+      
+#       train_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc = fitting_outputs
 
-      val_loss_avg_epochs[epoch] = val_loss_avg
-      val_src_class_acc_epochs[epoch] = src_class_acc
-      val_tgt_class_acc_epochs[epoch] = tgt_class_acc
-      val_domain_acc[epoch] = domain_acc
+#       train_loss_avg_epochs[epoch] = train_loss_avg
+#       train_src_class_acc_epochs[epoch] = src_class_acc
+#       train_tgt_class_acc_epochs[epoch] = tgt_class_acc
+#       train_domain_acc[epoch] = domain_acc
+#       df_performance.loc[i_CV,['train_src_class_loss','train_tgt_class_loss','train_src_domain_loss','train_tgt_domain_loss', 
+#                                 'train_src_class_acc','train_tgt_class_acc','train_domain_acc']] = [src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc]
+
+#       val_outputs = val_epoch_dann(src_val_loader, tgt_val_loader, src_val_size, tgt_val_size, device, 
+#                                       model,
+#                                       class_criterion, domain_criterion, epoch)
+
+#       val_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc = val_outputs
+
+#       val_loss_avg_epochs[epoch] = val_loss_avg
+#       val_src_class_acc_epochs[epoch] = src_class_acc
+#       val_tgt_class_acc_epochs[epoch] = tgt_class_acc
+#       val_domain_acc[epoch] = domain_acc
 
       # 4. store the performance of the model at the last epoch
-      df_performance.loc[i_CV,['val_src_class_loss','val_tgt_class_loss','val_src_domain_loss','val_tgt_domain_loss', 
-                                'val_src_class_acc','val_tgt_class_acc','val_domain_acc']] = [src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc]
-    
-    model.eval()
-    dann_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_loss_avg_epochs, \
-    train_src_class_acc_epochs, val_src_class_acc_epochs, \
-    train_tgt_class_acc_epochs, val_tgt_class_acc_epochs, \
-    train_domain_acc, val_domain_acc, i_CV, outputdir)
+#       df_performance.loc[i_CV,['val_src_class_loss','val_tgt_class_loss','val_src_domain_loss','val_tgt_domain_loss', 
+#                                 'val_src_class_acc','val_tgt_class_acc','val_domain_acc']] = [src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc]
+#     df_performance.loc[i_CV,['val_src_class_loss','val_tgt_class_loss','val_src_domain_loss','val_tgt_domain_loss', 
+#                                 'val_src_class_acc','val_tgt_class_acc','val_domain_acc']] = [val_performance_dict_list[epoch]['src_class_loss'], val_performance_dict_list[epoch]['tgt_class_loss'], val_performance_dict_list[epoch]['src_domain_loss'], val_performance_dict_list[epoch]['tgt_domain_loss'], val_performance_dict_list[epoch]['src_class_acc'], val_performance_dict_list[epoch]['tgt_class_acc'], val_performance_dict_list[epoch]['domain_acc']]
+#     df_performance.loc[i_CV,'i_CV'] = i_CV
+
+    df_performance.loc[i_CV,['i_CV', 
+							 'val_src_class_acc','val_tgt_class_acc',
+							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
+							 'val_src_class_precision','val_tgt_class_precision',
+							 'val_src_class_F1','val_tgt_class_F1',
+							 'val_domain_acc']] = [i_CV, 
+												   val_performance_dict_list[epoch]['src_class_acc'], val_performance_dict_list[epoch]['tgt_class_acc'], 
+												   val_performance_dict_list[epoch]['src_sensitivity'], val_performance_dict_list[epoch]['tgt_sensitivity'], 
+												   val_performance_dict_list[epoch]['src_precision'], val_performance_dict_list[epoch]['tgt_precision'], 
+												   val_performance_dict_list[epoch]['src_F1'], val_performance_dict_list[epoch]['tgt_F1'], 
+												   val_performance_dict_list[epoch]['domain_acc']]
+#                                 'val_src_class_acc','val_tgt_class_acc','val_domain_acc']]
+							 
+	
+#     model.eval()
+#     dann_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_loss_avg_epochs, \
+#     train_src_class_acc_epochs, val_src_class_acc_epochs, \
+#     train_tgt_class_acc_epochs, val_tgt_class_acc_epochs, \
+#     train_domain_acc, val_domain_acc, i_CV, outputdir)
+    if show_diagnosis_plt:
+      dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, i_CV, outputdir)
     
     print('-----------------Exporting pytorch model-----------------')
     # loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
@@ -608,16 +931,17 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
     export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
 
     print('-----------------Evaluating trained model-----------------')
-    model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-    model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+    if show_diagnosis_plt:
+      model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+      model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
 
   # 5. export model performance as df
   print('---------------Exporting model performance---------------')
   export_perofmance(df_performance, CV_n, outputdir)
 
-  print('val_src_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_class_acc'], df_performance.loc['std']['val_src_class_acc']))
-  print('val_tgt_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']))
-  print('val_domain_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']))
+#   print('val_src_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_class_acc'], df_performance.loc['std']['val_src_class_acc']))
+#   print('val_tgt_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']))
+#   print('val_domain_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']))
 
   # print('=========================================================')
 
@@ -651,19 +975,22 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
   with open(outputdir+'notebook_param.json', 'w') as fp:
     json.dump(param_dict, fp)
 
-  print('val_tgt_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']))
-  print('val_domain_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']))
+#   print('val_tgt_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']))
+#   print('val_domain_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']))
 
   num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-  return (df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']), (df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']), num_params
+#   return (df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']), (df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']), num_params
+#   return (df_performance.loc['mean']['val_tgt_class_sensitivity'], df_performance.loc['std']['val_tgt_class_sensitivity']), (df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']), num_params
+  return df_performance, num_params
+
 
 
 def performance_table(src_name, tgt_name, training_params, inputdir, outputdir):
   # df_performance_table = pd.DataFrame('', index=['source', 'DANN', 'target', 'domain', 'domain', 'time_elapsed'], columns=[])
 
-  df_performance_table = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
-                                                  'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params'], columns=[])
+#   df_performance_table = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
+#                                                   'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params'], columns=[])
   
 
 
@@ -675,14 +1002,10 @@ def performance_table(src_name, tgt_name, training_params, inputdir, outputdir):
   print('======================  train on source, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
   source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'source/')
-  # source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'source/', True)
   print('\n==========================================================================================================================')
   print('======================  train on target, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
-  # target_outputs = BaselineModel_fitting(training_params, tgt_name, src_name, inputdir, outputdir+'target/')
-  # target_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'target/', False)
   target_outputs = BaselineModel_fitting(training_params, tgt_name, src_name, inputdir, outputdir+'target/')
-  # target_outputs = BaselineModel_fitting_v2(training_params, get_tgt_loader, get_src_loader, tgt_name, src_name, inputdir, outputdir+'target/')
 
   print('\n==========================================================================================================================')
   print('======================  DANN training transferring knowledge(source={} to target={})  ======================'.format(src_name, tgt_name))
@@ -696,382 +1019,48 @@ def performance_table(src_name, tgt_name, training_params, inputdir, outputdir):
 
   print('time elapsed:', time.strftime("%H:%M:%S", time.gmtime(time_elapsed)))
 
-  (val_tgt_class_acc_mean, val_tgt_class_acc_std), (val_domain_acc_mean, val_domain_acc_std), num_params = dann_outputs
-  (_,_), (source_tgt_acc_mean, source_tgt_acc_std), num_params = source_outputs
-  (target_tgt_acc_mean, target_tgt_acc_std), (_,_), num_params = target_outputs
+  df_performance_src, num_params = source_outputs
+  df_performance_tgt, num_params = target_outputs
+  df_performance_dann, num_params = dann_outputs
 
-  df_performance_table.loc['channel_n',training_params['HP_name']] = training_params['channel_n']
-  df_performance_table.loc['batch_size',training_params['HP_name']] = training_params['batch_size']
-  df_performance_table.loc['learning_rate',training_params['HP_name']] = training_params['learning_rate']
-  df_performance_table.loc['source',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(source_tgt_acc_mean, source_tgt_acc_std)
-  df_performance_table.loc['DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(val_tgt_class_acc_mean, val_tgt_class_acc_std)
-  df_performance_table.loc['target',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(target_tgt_acc_mean, target_tgt_acc_std)
-  df_performance_table.loc['domain',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(val_domain_acc_mean, val_domain_acc_std)
-  df_performance_table.loc['time_elapsed',training_params['HP_name']] = time_elapsed
-  df_performance_table.loc['num_params',training_params['HP_name']] = num_params
-  # df_performance_table.loc['source',task_name] = '{:.3f}±{:.3f}'.format(source_tgt_acc_mean, source_tgt_acc_std)
-  # df_performance_table.loc['DANN',task_name] = '{:.3f}±{:.3f}'.format(val_tgt_class_acc_mean, val_tgt_class_acc_std)
-  # df_performance_table.loc['target',task_name] = '{:.3f}±{:.3f}'.format(target_tgt_acc_mean, target_tgt_acc_std)
-  # df_performance_table.loc['domain',task_name] = '{:.3f}±{:.3f}'.format(val_domain_acc_mean, val_domain_acc_std)
-  # df_performance_table.loc['num_params',task_name] = num_params
+	
+  def get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, metric_name, time_elapsed):
+	
+    df_performance_table = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
+                                                  'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params'], columns=[])
 
-  return df_performance_table
-
-# def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir, train_on_src): 
-# # def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir): 
-#   show_train_log = False
-
-#   if not os.path.exists(outputdir):
-#       os.makedirs(outputdir)
-      
-#   classes_n = training_params['classes_n']
-#   CV_n = training_params['CV_n']
-#   num_epochs = training_params['num_epochs']
-#   channel_n = training_params['channel_n']
-#   batch_size = training_params['batch_size']
-#   learning_rate = training_params['learning_rate']
-#   # dropout_p = training_params['dropout_p']
-
-#   df_performance = pd.DataFrame(columns=['i_CV',
-#                                           'train_loss','train_acc','val_loss','val_acc', 'tgt_val_loss', 'tgt_val_acc'])
-
-#   src_dataset_name = src_name.split('_')[0]
-#   src_sensor_loc = src_name.split('_')[1]
-
-#   tgt_dataset_name = tgt_name.split('_')[0]
-#   tgt_sensor_loc = tgt_name.split('_')[1]
-
-#   src_inputdir = inputdir + '{}/{}/'.format(src_dataset_name, src_sensor_loc)
-#   tgt_inputdir = inputdir + '{}/{}/'.format(tgt_dataset_name, tgt_sensor_loc)
+    df_performance_table.loc['channel_n',training_params['HP_name']] = training_params['channel_n']
+    df_performance_table.loc['batch_size',training_params['HP_name']] = training_params['batch_size']
+    df_performance_table.loc['learning_rate',training_params['HP_name']] = training_params['learning_rate']
+    df_performance_table.loc['source',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_src.loc['mean']['val_tgt_{}'.format(metric_name)], df_performance_src.loc['std']['val_tgt_{}'.format(metric_name)])
+	#   df_performance_table.loc['source',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(source_tgt_acc_mean, source_tgt_acc_std)
+    df_performance_table.loc['DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_tgt_class_{}'.format(metric_name)], df_performance_dann.loc['std']['val_tgt_class_{}'.format(metric_name)])
+	#   df_performance_table.loc['DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(val_tgt_class_acc_mean, val_tgt_class_acc_std)
+    df_performance_table.loc['target',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_tgt.loc['mean']['val_src_{}'.format(metric_name)], df_performance_tgt.loc['std']['val_src_{}'.format(metric_name)])
+	#   df_performance_table.loc['target',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(target_tgt_acc_mean, target_tgt_acc_std)
+    df_performance_table.loc['domain',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_domain_acc'], df_performance_dann.loc['std']['val_domain_acc'])
+	#   df_performance_table.loc['domain',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(val_domain_acc_mean, val_domain_acc_std)
+    df_performance_table.loc['time_elapsed',training_params['HP_name']] = time_elapsed
+    df_performance_table.loc['num_params',training_params['HP_name']] = num_params
+	
+    return df_performance_table
 
 
-#   for i_CV in range(CV_n):
-#     print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
-#     # 1. prepare dataset
-#     if train_on_src:
-#     #   src_train_loader, src_val_loader = get_src_loader(src_inputdir, i_CV, batch_size, learning_rate)
-#     #   tgt_train_loader, tgt_val_loader = get_tgt_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
-#       src_train_loader, src_val_loader = get_UMAFall_loader(src_inputdir, i_CV, batch_size, learning_rate)
-#       tgt_train_loader, tgt_val_loader = get_UPFall_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
-#     else:
-#       tgt_train_loader, tgt_val_loader = get_UMAFall_loader(src_inputdir, i_CV, batch_size, learning_rate)
-#       src_train_loader, src_val_loader = get_UPFall_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
+# TODO combine the get function and dict
+  df_performance_table_acc = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'acc', time_elapsed)
+  df_performance_table_sensitivity = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'sensitivity', time_elapsed)
+  df_performance_table_precision = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'precision', time_elapsed)
+  df_performance_table_F1 = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'F1', time_elapsed)
+
+
+  df_dict = {
+    'df_acc': df_performance_table_acc,
+    'df_sensitivity': df_performance_table_sensitivity,
+    'df_precision': df_performance_table_precision,
+    'df_F1': df_performance_table_F1,
+  }    
+	
+  torch.cuda.empty_cache()
+
     
-
-#     # the model expect the same input dimension for src and tgt data
-#     src_train_size = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-#     src_val_size = src_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-
-#     tgt_train_size = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-#     tgt_val_size = tgt_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-
-#     src_input_dim = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
-#     tgt_input_dim = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
-
-#     # 2. prepare model
-#     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-#     # loss and optimizer
-#     class_criterion = nn.CrossEntropyLoss()
-
-#     # 3. fit the model
-#     total_step = len(src_train_loader)
-
-#     train_loss_avg_epochs = np.zeros(num_epochs)
-#     train_class_acc_epochs = np.zeros(num_epochs)
-#     val_src_loss_avg_epochs = np.zeros(num_epochs)
-#     val_src_class_acc_epochs = np.zeros(num_epochs)
-#     val_tgt_loss_avg_epochs = np.zeros(num_epochs)
-#     val_tgt_class_acc_epochs = np.zeros(num_epochs)
-
-#     model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
-#     model_name = model.__class__.__name__
-#     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.01)
-
-#     model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-#     model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-
-#     for epoch in range(num_epochs):
-#       train_loss, train_acc = train_epoch(src_train_loader, src_train_size, device, model, class_criterion, optimizer, epoch)
-#       train_loss_avg_epochs[epoch] = train_loss
-#       train_class_acc_epochs[epoch] = train_acc
-
-#       val_loss, val_acc = val_epoch(src_val_loader, src_val_size, device, model, class_criterion, optimizer, epoch)
-#       val_src_loss_avg_epochs[epoch] = val_loss
-#       val_src_class_acc_epochs[epoch] = val_acc
-
-#       tgt_val_loss, tgt_val_acc = val_epoch(tgt_val_loader, tgt_val_size, device, model, class_criterion, optimizer, epoch)
-#       val_tgt_loss_avg_epochs[epoch] = tgt_val_loss
-#       val_tgt_class_acc_epochs[epoch] = tgt_val_acc
-
-#       if show_train_log:
-#         print('Epoch {}'.format(epoch))
-#         print('Train Loss: {:.6f}, Train ACC: {:.6f}, Val loss = {:.6f}, Val ACC: {:.6f}'.
-#               format(train_loss, train_acc, val_loss, val_acc))
-#         print('Target Val loss = {:.6f}, Val ACC: {:.6f}'.format(tgt_val_loss, tgt_val_acc))
-
-#       # 4. store the performance of the model at the last epoch
-#       df_performance.loc[i_CV] = [i_CV, train_loss, train_acc, val_loss, val_acc, tgt_val_loss, tgt_val_acc]
-    
-#     baseline_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_src_loss_avg_epochs, val_tgt_loss_avg_epochs, train_class_acc_epochs, val_src_class_acc_epochs, val_tgt_class_acc_epochs, i_CV, outputdir)
-
-#     print('-----------------Exporting pytorch model-----------------')
-#     loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
-#     export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
-
-#     print('-----------------Evaluating trained model-----------------')
-
-#     model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-#     model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-
-#   # 5. export model performance as df
-#   print('---------------Exporting model performance---------------')
-#   export_perofmance(df_performance, CV_n, outputdir)
-
-#   print('src val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_loss'], df_performance.loc['std']['val_loss']))
-#   print('src val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_acc'], df_performance.loc['std']['val_acc']))
-  
-#   print('tgt val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_loss'], df_performance.loc['std']['tgt_val_loss']))
-#   print('tgt val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_acc'], df_performance.loc['std']['tgt_val_acc']))
-
-#   # print('=========================================================')
-
-#   # 6. export notebook parameters as dict
-#   # datetime object containing current date and time
-#   print('--------------Exporting notebook parameters--------------')
-#   now = datetime.now()
-#   dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
-#   samples_n = src_train_size + src_val_size
-
-#   param_dict = {
-#       'CV_n': CV_n,
-#       'samples_n': samples_n,
-#       'classes_n': classes_n,
-#       'model_name': model_name,
-#       'dataset_name': src_dataset_name,
-#       'num_epochs': num_epochs,
-#       'channel_n': channel_n,
-#       'batch_size': batch_size,
-#       'learning_rate': learning_rate,
-#       'sensor_loc': src_sensor_loc,
-#       'date': dt_string,
-#       'input_dim': (batch_size, src_train_loader.dataset.data.size()[1], src_train_loader.dataset.data.size()[2]),
-#       'output_dim': src_train_loader.dataset.labels[0:batch_size].data.detach().cpu().numpy().shape,
-#   }
-
-#   print(param_dict)
-
-#   with open(outputdir+'notebook_param.json', 'w') as fp:
-#     json.dump(param_dict, fp)
-
-#   return (df_performance.loc['mean']['val_acc'], df_performance.loc['std']['val_acc']), (df_performance.loc['mean']['tgt_val_acc'], df_performance.loc['std']['tgt_val_acc'])
-
-
-# def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir, train_on_src): 
-# # def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir): 
-
-#   if not os.path.exists(outputdir):
-#       os.makedirs(outputdir)
-
-#   classes_n = training_params['classes_n']
-#   CV_n = training_params['CV_n']
-#   num_epochs = training_params['num_epochs']
-#   channel_n = training_params['channel_n']
-#   batch_size = training_params['batch_size']
-#   learning_rate = training_params['learning_rate']
-
-#   df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
-#                                 columns=['i_CV',
-#                                         'train_src_class_loss','train_tgt_class_loss','train_src_domain_loss','train_tgt_domain_loss', 
-#                                         'train_src_class_acc','train_tgt_class_acc','train_domain_acc',
-#                                         'val_src_class_loss','val_tgt_class_loss','val_src_domain_loss','val_tgt_domain_loss',
-#                                         'val_src_class_acc','val_tgt_class_acc','val_domain_acc'])
-
-#   src_dataset_name = src_name.split('_')[0]
-#   src_sensor_loc = src_name.split('_')[1]
-
-#   tgt_dataset_name = tgt_name.split('_')[0]
-#   tgt_sensor_loc = tgt_name.split('_')[1]
-
-#   src_inputdir = inputdir + '{}/{}/'.format(src_dataset_name, src_sensor_loc)
-#   tgt_inputdir = inputdir + '{}/{}/'.format(tgt_dataset_name, tgt_sensor_loc)
-
-
-#   for i_CV in range(CV_n):
-#     print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
-#     # 1. prepare dataset
-#     # src_train_loader, src_val_loader = get_UMAFall_loader(src_inputdir, i_CV, batch_size, learning_rate)
-#     # tgt_train_loader, tgt_val_loader = get_UPFall_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
-#     if train_on_src:
-#       src_train_loader, src_val_loader = get_UMAFall_loader(src_inputdir, i_CV, batch_size, learning_rate)
-#       tgt_train_loader, tgt_val_loader = get_UPFall_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
-#     else:
-#       tgt_train_loader, tgt_val_loader = get_UMAFall_loader(src_inputdir, i_CV, batch_size, learning_rate)
-#       src_train_loader, src_val_loader = get_UPFall_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
-
-#     # the model expect the same input dimension for src and tgt data
-#     src_train_size = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-#     src_val_size = src_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-
-#     tgt_train_size = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-#     tgt_val_size = tgt_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-
-#     src_input_dim = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
-#     tgt_input_dim = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
-
-#     # 2. prepare model
-#     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-
-#     # loss and optimizer
-#     class_criterion = nn.CrossEntropyLoss()
-#     domain_criterion = nn.CrossEntropyLoss()
-
-#     # 3. fit the model
-#     total_step = len(src_train_loader)
-
-#     train_loss_avg_epochs = np.zeros(num_epochs)
-#     train_src_class_acc_epochs = np.zeros(num_epochs)
-#     train_tgt_class_acc_epochs = np.zeros(num_epochs)
-#     train_domain_acc = np.zeros(num_epochs)
-#     val_loss_avg_epochs = np.zeros(num_epochs)
-#     val_src_class_acc_epochs = np.zeros(num_epochs)
-#     val_tgt_class_acc_epochs = np.zeros(num_epochs)
-#     val_domain_acc = np.zeros(num_epochs)
-
-#     df_performance.loc[i_CV,'i_CV'] = i_CV
-#     model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
-#     model_name = model.__class__.__name__
-#     train_size = src_train_size+tgt_train_size
-#     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.01)
-
-#     model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-#     model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-
-#     for epoch in range(num_epochs):
-#       fitting_outputs = train_epoch_dann(src_train_loader, tgt_train_loader, src_train_size, tgt_train_size, device, 
-#                                           model, 
-#                                           class_criterion, domain_criterion, optimizer, epoch)
-      
-#       train_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc = fitting_outputs
-
-#       train_loss_avg_epochs[epoch] = train_loss_avg
-#       train_src_class_acc_epochs[epoch] = src_class_acc
-#       train_tgt_class_acc_epochs[epoch] = tgt_class_acc
-#       train_domain_acc[epoch] = domain_acc
-#       df_performance.loc[i_CV,['train_src_class_loss','train_tgt_class_loss','train_src_domain_loss','train_tgt_domain_loss', 
-#                                 'train_src_class_acc','train_tgt_class_acc','train_domain_acc']] = [src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc]
-
-#       val_outputs = val_epoch_dann(src_val_loader, tgt_val_loader, src_val_size, tgt_val_size, device, 
-#                                       model,
-#                                       class_criterion, domain_criterion, epoch)
-
-#       val_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc = val_outputs
-
-#       val_loss_avg_epochs[epoch] = val_loss_avg
-#       val_src_class_acc_epochs[epoch] = src_class_acc
-#       val_tgt_class_acc_epochs[epoch] = tgt_class_acc
-#       val_domain_acc[epoch] = domain_acc
-
-#       # 4. store the performance of the model at the last epoch
-#       df_performance.loc[i_CV,['val_src_class_loss','val_tgt_class_loss','val_src_domain_loss','val_tgt_domain_loss', 
-#                                 'val_src_class_acc','val_tgt_class_acc','val_domain_acc']] = [src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc]
-    
-#     dann_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_loss_avg_epochs, \
-#     train_src_class_acc_epochs, val_src_class_acc_epochs, \
-#     train_tgt_class_acc_epochs, val_tgt_class_acc_epochs, \
-#     train_domain_acc, val_domain_acc, i_CV, outputdir)
-    
-#     print('-----------------Exporting pytorch model-----------------')
-#     loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
-#     export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
-
-#     print('-----------------Evaluating trained model-----------------')
-#     model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-#     model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-
-#   # 5. export model performance as df
-#   print('---------------Exporting model performance---------------')
-#   export_perofmance(df_performance, CV_n, outputdir)
-
-#   print('val_src_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_class_acc'], df_performance.loc['std']['val_src_class_acc']))
-#   print('val_tgt_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']))
-#   print('val_domain_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']))
-
-#   # print('=========================================================')
-
-#   # 6. export notebook parameters as dict
-#   # datetime object containing current date and time
-#   print('--------------Exporting notebook parameters--------------')
-#   now = datetime.now()
-#   dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
-#   samples_n = src_train_size + src_val_size
-
-#   param_dict = {
-#       'CV_n': CV_n,
-#       'samples_n': samples_n,
-#       'classes_n': classes_n,
-#       'model_name': model_name,
-#       'src_dataset_name': src_dataset_name,
-#       'tgt_dataset_name': tgt_dataset_name,
-#       'src_sensor_loc': src_sensor_loc,
-#       'tgt_sensor_loc': tgt_sensor_loc,
-#       'date': dt_string,
-#       'num_epochs': num_epochs,
-#       'channel_n': channel_n,
-#       'batch_size': batch_size,
-#       'learning_rate': learning_rate,
-#       'input_dim': (batch_size, src_train_loader.dataset.data.size()[1], src_train_loader.dataset.data.size()[2]),
-#       'output_dim': 2,
-#       'label_dim': src_train_loader.dataset.labels[0:batch_size].data.detach().cpu().numpy().shape,
-#   }
-#   print(param_dict)
-
-#   with open(outputdir+'notebook_param.json', 'w') as fp:
-#     json.dump(param_dict, fp)
-
-#   print('val_tgt_class_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']))
-#   print('val_domain_acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc']))
-
-#   return (df_performance.loc['mean']['val_tgt_class_acc'], df_performance.loc['std']['val_tgt_class_acc']), (df_performance.loc['mean']['val_domain_acc'], df_performance.loc['std']['val_domain_acc'])
-
-
-
-
-# def performance_table(df_performance_table, src_name, tgt_name, training_params, inputdir, outputdir):
-#   task_name = src_name+'_'+tgt_name
-#   # df_performance_table[task_name] = ''
-
-#   start_time = time.time()
-#   # print('========================transferring knowledge from source({}) to target({})========================'.format(src_name, tgt_name))
-#   print('\n==========================================================================================================================')
-#   print('======================  train on source, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
-#   print('==========================================================================================================================\n')
-#   source_outputs = BaselineModel_fitting_v2(training_params, get_UMAFall_loader, get_UPFall_loader, src_name, tgt_name, inputdir, outputdir+'source/')
-#   # source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'source/', True)
-#   print('\n==========================================================================================================================')
-#   print('======================  train on target, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
-#   print('==========================================================================================================================\n')
-#   # target_outputs = BaselineModel_fitting(training_params, tgt_name, src_name, inputdir, outputdir+'target/')
-#   # target_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'target/', False)
-#   target_outputs = BaselineModel_fitting_v2(training_params, get_UPFall_loader, get_UMAFall_loader, tgt_name, src_name, inputdir, outputdir+'target/')
-
-#   print('\n==========================================================================================================================')
-#   print('======================  DANN training transferring knowledge(source={} to target={})  ======================'.format(src_name, tgt_name))
-#   print('==========================================================================================================================\n')
-  
-#   # print('========================DANN training transferring knowledge from source({}) to target({})========================'.format(src_name, tgt_name))
-#   dann_outputs = DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'dann/', True)
-
-#   elapsed_time = time.time() - start_time
-#   print('time elapsed:', time.strftime("%H:%M:%S", time.gmtime(elapsed_time)))
-
-#   (val_tgt_class_acc_mean, val_tgt_class_acc_std), (val_domain_acc_mean, val_domain_acc_std) = dann_outputs
-#   (_,_), (source_tgt_acc_mean, source_tgt_acc_std) = source_outputs
-#   (target_tgt_acc_mean, target_tgt_acc_std), (_,_) = target_outputs
-
-#   df_performance_table.loc['source',task_name] = '{:.3f}±{:.3f}'.format(source_tgt_acc_mean, source_tgt_acc_std)
-#   df_performance_table.loc['DANN',task_name] = '{:.3f}±{:.3f}'.format(val_tgt_class_acc_mean, val_tgt_class_acc_std)
-#   df_performance_table.loc['target',task_name] = '{:.3f}±{:.3f}'.format(target_tgt_acc_mean, target_tgt_acc_std)
-#   df_performance_table.loc['domain',task_name] = '{:.3f}±{:.3f}'.format(val_domain_acc_mean, val_domain_acc_std)
-
-#   return df_performance_table
+  return df_dict
