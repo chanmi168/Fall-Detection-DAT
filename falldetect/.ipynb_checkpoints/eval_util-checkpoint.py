@@ -22,6 +22,7 @@ import json
 import matplotlib
 import matplotlib.pyplot as plt
 matplotlib.rc( 'savefig', facecolor = 'white' )
+# matplotlib.rc( 'savefig', transparent=True )
 
 from sklearn.decomposition import PCA
 
@@ -138,62 +139,6 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
     ax1.plot(np.arange(num_epochs), val_performance_epochs[metric_name].values, color='red', label='val')
     ax1.legend(loc="upper right")
 
-#   ax1 = fig.add_subplot(1, 4, 1)
-#   ax1.set_title('src_class_loss_epochs')
-#   ax1.set_xlabel('epoch')
-#   ax1.plot(np.arange(num_epochs), train_performance_epochs['src_class_loss'].values, color='blue', label='train')
-#   ax1.plot(np.arange(num_epochs), val_performance_epochs['src_class_loss'].values, color='red', label='val')
-#   ax1.legend(loc="upper right")
-
-#   ax2 = fig.add_subplot(1, 4, 2)
-#   ax2.set_title('src_class_acc_epochs')
-#   ax2.set_xlabel('epoch')
-#   ax2.plot(np.arange(num_epochs), train_performance_epochs['src_class_acc'].values, color='blue', label='train')
-#   ax2.plot(np.arange(num_epochs), val_performance_epochs['src_class_acc'].values, color='red', label='val')
-#   ax2.legend(loc="upper right")
-
-#   ax3 = fig.add_subplot(1, 4, 3)
-#   ax3.set_title('tgt_class_acc_epochs')
-#   ax3.set_xlabel('epoch')
-#   ax3.plot(np.arange(num_epochs), train_performance_epochs['tgt_class_acc'].values, color='blue', label='train')
-#   ax3.plot(np.arange(num_epochs), val_performance_epochs['tgt_class_acc'].values, color='red', label='val')
-#   ax3.legend(loc="upper right")
-
-#   ax4 = fig.add_subplot(1, 4, 4)
-#   ax4.set_title('domain_acc_epochs')
-#   ax4.set_xlabel('epoch')
-#   ax4.plot(np.arange(num_epochs), train_performance_epochs['domain_acc'].values, color='blue', label='train')
-#   ax4.plot(np.arange(num_epochs), val_performance_epochs['domain_acc'].values, color='red', label='val')
-#   ax4.legend(loc="upper right")
-#   fig = plt.figure(figsize=(20, 3), dpi=dpi)
-#   ax1 = fig.add_subplot(1, 4, 1)
-#   ax1.set_title('loss_avg_epochs')
-#   ax1.set_xlabel('epoch')
-#   ax1.plot(np.arange(num_epochs), train_loss_avg_epochs, color='blue', label='train')
-#   ax1.plot(np.arange(num_epochs), val_loss_avg_epochs, color='red', label='val')
-#   ax1.legend(loc="upper right")
-
-#   ax2 = fig.add_subplot(1, 4, 2)
-#   ax2.set_title('src_class_acc_epochs')
-#   ax2.set_xlabel('epoch')
-#   ax2.plot(np.arange(num_epochs), train_src_class_acc_epochs, color='blue', label='train')
-#   ax2.plot(np.arange(num_epochs), val_src_class_acc_epochs, color='red', label='val')
-#   ax2.legend(loc="upper right")
-
-#   ax3 = fig.add_subplot(1, 4, 3)
-#   ax3.set_title('tgt_class_acc_epochs')
-#   ax3.set_xlabel('epoch')
-#   ax3.plot(np.arange(num_epochs), train_tgt_class_acc_epochs, color='blue', label='train')
-#   ax3.plot(np.arange(num_epochs), val_tgt_class_acc_epochs, color='red', label='val')
-#   ax3.legend(loc="upper right")
-
-#   ax4 = fig.add_subplot(1, 4, 4)
-#   ax4.set_title('domain_acc')
-#   ax4.set_xlabel('epoch')
-#   ax4.plot(np.arange(num_epochs), train_domain_acc, color='blue', label='train')
-#   ax4.plot(np.arange(num_epochs), val_domain_acc, color='red', label='val')
-#   ax4.legend(loc="upper right")
-
   plt.show()
   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 
@@ -227,7 +172,7 @@ def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name,
   tgt_domain_sigmoid = torch.sigmoid(tgt_domain_out).data.detach().cpu().numpy()
   tgt_domain_pred = np.argmax(tgt_domain_sigmoid, 1)
   data_size = src_class_pred.shape[0]
-  (src_class_pred==src_labels.data.detach().cpu().numpy()).sum()/data_size
+#   (src_class_pred==src_labels.data.detach().cpu().numpy()).sum()/data_size
 
   src_domain_labels = np.zeros(src_domain_pred.shape[0])
   tgt_domain_labels = np.ones(tgt_domain_pred.shape[0])
@@ -406,7 +351,7 @@ def get_rep_stats(df_performance_table_agg, rep_n):
 	return df_performance_table_agg
 
 
-def get_optimal(df_performance_table_agg):
+def get_optimal_v0(df_performance_table_agg):
     df_performance_table_agg_temp = df_performance_table_agg.copy()
 
     result = df_performance_table_agg_temp[['HP_i0','HP_i1','HP_i2']].sort_values(by='DANN', ascending=False, axis=1)
@@ -419,3 +364,11 @@ def get_optimal(df_performance_table_agg):
     learning_rate_optimal = result.loc['learning_rate'][0]
 
     return int(batch_size_optimal), int(channel_n_optimal), learning_rate_optimal
+
+
+def get_optimal_v1(df_performance_table_agg):
+    df_performance_table_agg_temp = df_performance_table_agg.copy()
+
+    result = df_performance_table_agg_temp.sort_values(by='DANN', ascending=False, axis=1)
+    channel_n_optimal = result.loc['channel_n'][0]
+    return int(channel_n_optimal)

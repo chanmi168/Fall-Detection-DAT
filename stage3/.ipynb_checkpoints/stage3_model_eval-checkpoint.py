@@ -122,8 +122,6 @@ for item in args.tasks_list.split(' '):
 src_domains = args.src_names.split(' ')
 tgt_domains = args.tgt_names.split(' ')
 
-# inputdir = home_dir + 'data_mic/{}/'.format(input_folder)
-# outputdir = home_dir + 'data_mic/{}/'.format(output_folder)
 inputdir = input_folder + '/'
 outputdir = output_folder + '/'
 
@@ -146,23 +144,19 @@ outputdir = output_folder + '/'
 
 
 
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
 # In[5]:
-
-
-# df_task_inputdir
-
-# # df_task = pd.read_csv(df_task_inputdir, index_col=0)[['rep_avg']].copy()
-# df_task_inputdir
-
-
-# In[6]:
-
-
-# df_task
-# float(df_task.copy().iloc[:, 0][training_setting].split('±')[0])
-
-
-# In[7]:
 
 
 df_metric_keys = ['df_acc', 'df_sensitivity', 'df_precision', 'df_F1']
@@ -217,7 +211,7 @@ for training_setting in finetuned_results.keys():
 
 
 
-# In[18]:
+# In[27]:
 
 
 df_task_list = dict( zip(df_metric_keys,[[], [], [], []]))
@@ -245,7 +239,17 @@ for metric_name in df_metric_keys:
     print('will export data to', outputdir)
     
     df_task_list[metric_name] = pd.concat(df_task_list[metric_name], axis=1)
-    df_task_list[metric_name] = df_task_list[metric_name].reindex(['channel_n', 'batch_size', 'learning_rate', 'time_elapsed', 'num_params',                   'source', 'DANN', 'target', 'domain', 'improvement'])
+#     df_task_copy = pd.concat(df_task_list[metric_name], axis=1).copy()
+#     df_task_copy
+    df_task_copy = df_task_list[metric_name].copy()
+    df_task_list[metric_name].at['source', 'average'] = df_task_copy.loc['source'].apply(get_mean).mean()
+    df_task_list[metric_name].at['DANN', 'average'] = df_task_copy.loc['DANN'].apply(get_mean).mean()
+    df_task_list[metric_name].at['target', 'average'] = df_task_copy.loc['target'].apply(get_mean).mean()
+    df_task_list[metric_name].at['domain', 'average'] = df_task_copy.loc['domain'].apply(get_mean).mean()
+    df_task_list[metric_name].at['improvement', 'average'] = df_task_copy.loc['improvement'].mean()
+
+    
+    df_task_list[metric_name] = df_task_list[metric_name].reindex(['channel_n', 'batch_size', 'learning_rate', 'time_elapsed', 'num_params',                   'source', 'DANN', 'target', 'domain', 'improvement'])  
     display(df_task_list[metric_name])
     df_task_list[metric_name].to_csv(outputdir+'df_performance_table_agg_{}.csv'.format(metric_name.split('_')[1]), encoding='utf-8')
     df_task_list[metric_name].to_excel(writer, sheet_name=metric_name.split('_')[1])

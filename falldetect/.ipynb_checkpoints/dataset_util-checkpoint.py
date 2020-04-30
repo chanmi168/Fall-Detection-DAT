@@ -31,9 +31,10 @@ import torch.nn.functional as F
 val_batch_size = 5000
 	
 class FallDataset(Dataset):
-  def __init__(self, data, labels):
+  def __init__(self, data, labels, DataNameList_idx):
       self.data = torch.FloatTensor(data)
       self.labels = torch.FloatTensor(labels)
+      self.DataNameList_idx = DataNameList_idx
       # self.data = torch.LongTensor(data)
       # self.labels = torch.LongTensor(labels)
 
@@ -61,6 +62,9 @@ def get_data_loader(inputdir, i_CV, batch_size, learning_rate):
   train_i_sub = data_loader('i_sub', train_inputdir)
   val_i_sub = data_loader('i_sub', val_inputdir)
 
+  train_DataNameList_idx = data_loader('DataNameList_idx', train_inputdir)
+  val_DataNameList_idx = data_loader('DataNameList_idx', val_inputdir)
+
   print('train_data shape:', train_data.shape)
   print('val_data shape:', val_data.shape)
 
@@ -72,8 +76,8 @@ def get_data_loader(inputdir, i_CV, batch_size, learning_rate):
   train_labels_binary = (train_labels==1).astype(int)
   val_labels_binary = (val_labels==1).astype(int)
 
-  train_dataset = FallDataset(train_data, train_labels_binary)
-  val_dataset = FallDataset(val_data, val_labels_binary)
+  train_dataset = FallDataset(train_data, train_labels_binary, train_DataNameList_idx)
+  val_dataset = FallDataset(val_data, val_labels_binary, val_DataNameList_idx)
   # data loader
   train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             batch_size=batch_size, 

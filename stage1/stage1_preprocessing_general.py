@@ -55,7 +55,7 @@ home = expanduser("~")
 # # Get user inputs
 # In ipython notebook, these are hardcoded. In production python code, use parsers to provide these inputs
 
-# In[4]:
+# In[84]:
 
 
 parser = argparse.ArgumentParser(description='FD_DAT')
@@ -71,6 +71,8 @@ parser.add_argument('--split_mode', metavar='split_mode', help='split_mode',
                     default='5fold')
 parser.add_argument('--i_seed', type=int, metavar='i_seed', help='seed number',
                     default='0')
+parser.add_argument('--standardization', metavar='standardization', help='method of standardization',
+                    default='None')
 parser.add_argument('--excluded_idx', metavar='excluded_idx', 
                    default='none')
 # split_mode = 'LOO'
@@ -93,20 +95,25 @@ parser.add_argument('--excluded_idx', metavar='excluded_idx',
 #                           '--split_mode', '5fold',
 #                           '--i_seed', '1'])
 
-# # SFDLA
+# # # SFDLA
 # args = parser.parse_args(['--input_dir', '../../Data/{}/ImpactWindow_Resample_NormalforAllAxes/18hz/{}/',
-#                           '--output_dir', '../../data_mic/stage1_preprocessed_NormalforAllAxes_18hz_{}/{}/{}/', 
-#                           '--dataset_name', 'UPFall', 
-#                           '--sensor_loc', 'wrist',
+#                           '--output_dir', '../../data_mic/stage1_preprocessed_NormalforAllAxes_18hz_{}/{}/{}/',
+# args = parser.parse_args(['--input_dir', '../../Data/{}/ImpactWindow_Resample_WithoutNormal/18hz/{}/',
+#                           '--output_dir', '../../data_mic/stage1_preprocessed_WithoutNormal_18hz_{}/{}/{}/', 
+# args = parser.parse_args(['--input_dir', '../../Data/{}/ImpactWindow_Resample/18hz/{}/',
+#                           '--output_dir', '../../data_mic/stage1_preprocessed_18hz_{}/{}/{}/',
+#                           '--dataset_name', 'UMAFall', 
+#                           '--sensor_loc', 'leg',
 #                           '--split_mode', '5fold',
-#                           '--i_seed', '1'])
+#                           '--i_seed', '1',
+#                           '--standardization', 'None'])
 
                           
 
 args = parser.parse_args()
 
 
-# In[5]:
+# In[101]:
 
 
 input_dir = args.input_dir
@@ -116,11 +123,13 @@ sensor_loc = args.sensor_loc
 home_dir = home+'/project_FDDAT/'
 split_mode = args.split_mode
 i_seed = args.i_seed
+standardization = args.standardization
 if args.excluded_idx == 'none':
     excluded_idx = []
 else:
     excluded_idx = list(map(int, args.excluded_idx.split(' ')))
 
+sampling_freq = 18.4
 print(args)
 
 
@@ -132,10 +141,10 @@ print(args)
 
 # # load data_management (all) first
 
-# In[6]:
+# In[86]:
 
 
-# resampled, 18hz
+# resampled, 18.4hz
 DataNameList_inputdir = input_dir+'IP_{}_DataNameList_{}.csv'
 DataNameList_inputdir = DataNameList_inputdir.format(dataset_name, sensor_loc, dataset_name, sensor_loc)
 
@@ -150,7 +159,7 @@ df = pd.read_csv(DataNameList_inputdir)
 df.head(5)
 
 
-# In[7]:
+# In[87]:
 
 
 act_names = df['Activity_ID'].unique()
@@ -164,7 +173,7 @@ print(act_embeddings)
 
 
 
-# In[8]:
+# In[88]:
 
 
 if dataset_name=='UMAFall' or dataset_name=='UPFall' or dataset_name=='FARSEEING':
@@ -201,7 +210,7 @@ for filename in tqdm(df[column_x_DataName]):
     i += 1
 
 
-# In[9]:
+# In[89]:
 
 
 fall_n = (actlabels_all==1).sum()
@@ -222,7 +231,16 @@ print('fall_n, adl_n:', fall_n, adl_n)
 
 
 
-# In[10]:
+# In[90]:
+
+
+if standardization == '0 mean unit var':
+    data_all = (data_all - data_all.mean()) / data_all.std()
+elif standardization == 'None':
+    pass
+
+
+# In[91]:
 
 
 samples_n = data_all.shape[2]
@@ -234,16 +252,16 @@ print('number of activities', labels_n)
 print('number of subject', subjects_n)
 
 
-# In[11]:
+# In[92]:
 
 
-print(np.mean(data_all,axis=(0,2)))
-print(np.std(data_all,axis=(0,2)))
-print(np.max(data_all,axis=(0,2)))
-print(np.min(data_all,axis=(0,2)))
+print('3 axes mean', np.mean(data_all,axis=(0,2)))
+print('3 axes std', np.std(data_all,axis=(0,2)))
+print('3 axes max', np.max(data_all,axis=(0,2)))
+print('3 axes min', np.min(data_all,axis=(0,2)))
 
 
-# In[23]:
+# In[93]:
 
 
 figure=plt.figure(figsize=(5, 5), dpi= 80, facecolor='w', edgecolor='k')
@@ -257,6 +275,7 @@ ax.set_xlabel('raw value (a.u.)', fontsize = 15)
 ax.set_title('raw value distribution', fontsize = 20)
 
 ax.set_xlim([np.min(data_all),np.max(data_all)])
+# ax.set_xlim([0.3,0.4])
 figure.savefig(outputdir + 'raw_distribution.png')
 
 
@@ -268,7 +287,7 @@ figure.savefig(outputdir + 'raw_distribution.png')
 
 # # plot FT distribution
 
-# In[13]:
+# In[94]:
 
 
 
@@ -290,7 +309,7 @@ for i_win in range(data_all_FT.shape[2]):
 
 
 
-# In[14]:
+# In[95]:
 
 
 # get indices for each class
@@ -307,10 +326,9 @@ data_FT_Fall = data_all_FT[:,:,indices_Fall]
 
 
 
-# In[24]:
+# In[96]:
 
 
-sampling_freq = 18
 T = 1/sampling_freq
 N = data_all.shape[0]
 
@@ -345,7 +363,7 @@ def plot_FT_distribution(data_FT_ADL, data_FT_Fall, visual_resultsdir):
     figure.savefig(visual_resultsdir + 'FT_distribution.png')
 
 
-# In[25]:
+# In[97]:
 
 
 plot_FT_distribution(data_FT_Fall, data_FT_ADL, outputdir)
@@ -363,25 +381,34 @@ plot_FT_distribution(data_FT_Fall, data_FT_ADL, outputdir)
 
 
 
-# In[ ]:
+# In[98]:
+
+
+plt.cla()
+
+
+# In[108]:
 
 
 
 
 
-# In[16]:
+# In[110]:
 
 
 rand_idx = np.arange(data_all.shape[2])
+np.random.seed(i_seed)
 np.random.shuffle(rand_idx)
 
-for idx in range(10):
+t_data = np.asarray(range(data_all.shape[0]))/sampling_freq
+
+for idx in range(20):
     i = rand_idx[idx]
-    plt.plot(data_all[:,0,i], label='x', alpha=0.8)
-    plt.plot(data_all[:,1,i], label='y', alpha=0.8)
-    plt.plot(data_all[:,2,i], label='z', alpha=0.8)
+    plt.plot(t_data, data_all[:,0,i], label='x', alpha=0.8)
+    plt.plot(t_data, data_all[:,1,i], label='y', alpha=0.8)
+    plt.plot(t_data, data_all[:,2,i], label='z', alpha=0.8)
     plt.ylabel('acc value (a.u.)')
-    plt.xlabel('time (sample)')
+    plt.xlabel('time (sec)')
     plt.legend(loc='upper right')
 
     if actlabels_all[i] == 1:
@@ -400,7 +427,7 @@ for idx in range(10):
 
 
 
-# In[17]:
+# In[100]:
 
 
 unique_label_id, labels_counts = np.unique(actlabels_all, return_counts=True)

@@ -9,7 +9,7 @@
 
 # # Import packages and get authenticated
 
-# In[1]:
+# In[ ]:
 
 
 # from google.colab import drive
@@ -53,6 +53,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 matplotlib.rc( 'savefig', facecolor = 'white' )
 
+# matplotlib.rc( 'savefig', transparent=True )
+
 from sklearn.decomposition import PCA
 
 import torch
@@ -78,6 +80,8 @@ parser.add_argument('--input_folder', metavar='input_folder', help='input_folder
                     default='../')
 parser.add_argument('--output_folder', metavar='output_folder', help='output_folder',
                     default='../')
+parser.add_argument('--training_params_file', metavar='training_params_file', help='training_params_file',
+                    default='training_params_list_v0.json')
 parser.add_argument('--extractor_type', metavar='extractor_type', help='extractor_type',
                     default='CNN')
 parser.add_argument('--num_epochs', type=int, metavar='num_epochs', help='number of epochs',
@@ -100,15 +104,17 @@ parser.add_argument('--show_diagnosis_plt', metavar='show_diagnosis_plt', help='
 # split_mode = '5fold'
 
 # checklist 2: comment first line, uncomment second line seizures_FN
-# args = parser.parse_args(['--input_folder', '../../data_mic/stage1_preprocessed_NormalforAllAxes_18hz_5fold', 
-#                           '--output_folder', '../../data_mic/stage2_modeloutput_NormalforAllAxes_18hz_5fold',
+# plt.style.use(['dark_background'])
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage1_preprocessed_WithoutNormal_18hz_5fold', 
+#                           '--output_folder', '../../data_mic/stage2_modeloutput_WithoutNormal_18hz_5fold_test',
+#                           '--training_params_file', 'training_params_list_v1.json',
 #                           '--extractor_type', 'CNN',
 #                           '--num_epochs', '10',
 #                           '--CV_n', '2',
 #                           '--rep_n', '2',
 #                           '--show_diagnosis_plt', 'True',
-#                           '--tasks_list', 'UPFall_wrist-UMAFall_wrist',])
-# #                           '--tasks_list', 'UMAFall_waist-UMAFall_wrist UPFall_wrist-UMAFall_ankle',])
+#                           '--tasks_list', 'UPFall_rightpocket-UMAFall_leg UMAFall_leg-UPFall_rightpocket',])
+#                           '--tasks_list', 'UMAFall_waist-UMAFall_wrist UPFall_wrist-UMAFall_ankle',])
                           
 args = parser.parse_args()
 
@@ -125,12 +131,13 @@ print(args)
 
 
 
-# In[6]:
+# In[5]:
 
 
 home_dir = home+'/project_FDDAT/'
 input_folder = args.input_folder
 output_folder = args.output_folder
+training_params_file = args.training_params_file
 extractor_type = args.extractor_type
 num_epochs = args.num_epochs
 CV_n = args.CV_n
@@ -146,14 +153,13 @@ tasks_list = []
 for item in args.tasks_list.split(' '):
     tasks_list.append((item.split('-')[0], item.split('-')[1]))
     
-# inputdir = home_dir + 'data_mic/{}/'.format(input_folder)
-# outputdir = home_dir + 'data_mic/{}/'.format(output_folder)
 inputdir = input_folder+'/'
 outputdir = output_folder+'/'
 if not os.path.exists(outputdir):
     os.makedirs(outputdir)
     
-test_mode = 'test' in outputdir.split('/')[-2]
+# test_mode = 'test' in outputdir.split('/')[-2]
+# test_mode = 'test' in training_params_file
 
 device = torch.device('cuda:{}'.format(int(cuda_i)) if torch.cuda.is_available() else 'cpu')
 
@@ -316,24 +322,21 @@ device = torch.device('cuda:{}'.format(int(cuda_i)) if torch.cuda.is_available()
 #     'show_diagnosis_plt': show_diagnosis_plt,
 #   }, ]
 
+# with open('training_params_list.json', 'w') as fout:
+#     json.dump(training_params_list, fout, indent=2)
+
+
+# In[ ]:
+
+
+
+
 
 # In[7]:
 
 
-# import json
-# with open('aaa.json', 'w') as fout:
-#     json.dump(training_params_list, fout, indent=2)
-
-
-# In[8]:
-
-
-if test_mode:
-    with open('test_params_list.json') as json_file:
-        training_params_list = json.load(json_file)
-else:
-    with open('training_params_list.json') as json_file:
-        training_params_list = json.load(json_file)
+with open(training_params_file) as json_file:
+    training_params_list = json.load(json_file)
     
 for training_params in training_params_list:
     training_params['CV_n'] = CV_n
@@ -355,7 +358,7 @@ for training_params in training_params_list:
 
 
 
-# In[9]:
+# In[8]:
 
 
 # fine-tuning
@@ -366,7 +369,6 @@ for task_item in tasks_list:
     (src_name, tgt_name) = task_item
 
     task_outputdir = '{}{}_{}/'.format(outputdir, src_name, tgt_name)
-#     task_outputdir = home_dir + 'data_mic/{}/{}_{}/'.format(output_folder, src_name, tgt_name)
     if not os.path.exists(task_outputdir):
         os.makedirs(task_outputdir)
     print('outputdir for stage2 {} output: {}'.format(task_item, task_outputdir))
@@ -377,88 +379,80 @@ for task_item in tasks_list:
     df_dict_agg_HP = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
 
 
-  # 1. try all HP
+    # 1. try all HP
     for i, training_params in enumerate(training_params_list):
-
         df_dict = performance_table(src_name, tgt_name, training_params, inputdir, task_outputdir)
-#         df_performance_table_sensitivity = df_dict['df_sensitivity']
-#         df_performance_table_agg_HP[training_params['HP_name']] = df_performance_table_sensitivity
-        
         for df_name in df_dict_agg_HP.keys():
             print('show', df_name)
             df_dict_agg_HP[df_name][training_params['HP_name']] = df_dict[df_name].copy()
-            display(df_dict_agg_HP[df_name])
+#             display(df_dict_agg_HP[df_name])
         
     # 2. agg all HP
-#     df_performance_table_agg_HP['HP_i3_1'] = df_performance_table_agg_HP['HP_i1']
-#     df_performance_table_agg_HP['HP_i5_1'] = df_performance_table_agg_HP['HP_i1']
     
-    if test_mode:
+    if training_params_file=='training_params_list_test.json':
         pass
-    else:
+    elif training_params_file=='training_params_list_v1.json':
+        pass
+    elif training_params_file=='training_params_list_v0.json':
         for df_name in df_dict_agg_HP.keys():
             df_dict_agg_HP[df_name]['HP_i3_1'] = df_dict_agg_HP[df_name]['HP_i1']
             df_dict_agg_HP[df_name]['HP_i5_1'] = df_dict_agg_HP[df_name]['HP_i1']
-            display(df_dict_agg_HP[df_name])
-
-#     input()
     
     # 3. run optimal param for a task (based on dann sens.)
     training_params_optimal = training_params.copy()
     training_params_optimal['HP_name'] = 'HP_optimal'
-    if test_mode:
+    if training_params_file=='training_params_list_test.json':
         training_params_optimal['batch_size'] = 64
         training_params_optimal['channel_n'] = 4
         training_params_optimal['learning_rate'] = 0.01
-    else:
-        batch_size_optimal, channel_n_optimal, learning_rate_optimal = get_optimal(df_dict_agg_HP['df_sensitivity'])
+    elif training_params_file=='training_params_list_v1.json':
+        channel_n_optimal = get_optimal_v1(df_dict_agg_HP['df_sensitivity'])
+        training_params_optimal['channel_n'] = channel_n_optimal
+    elif training_params_file=='training_params_list_v0.json':
+        batch_size_optimal, channel_n_optimal, learning_rate_optimal = get_optimal_v0(df_dict_agg_HP['df_sensitivity'])
         training_params_optimal['batch_size'] = batch_size_optimal
         training_params_optimal['channel_n'] = channel_n_optimal
         training_params_optimal['learning_rate'] = learning_rate_optimal
 
-#     df_performance_table = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
-#     df_performance_table_agg_HP[training_params_optimal['HP_name']] = df_performance_table
+    
     df_dict = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
-#     df_performance_table_sensitivity = df_dict['df_sensitivity']
-#     df_performance_table_agg_HP[training_params_optimal['HP_name']] = df_performance_table_sensitivity
 
     for df_name in df_dict_agg_HP.keys():
         df_dict_agg_HP[df_name][training_params_optimal['HP_name']] = df_dict[df_name].copy()
     
-#     df_performance_table_agg_HP = df_performance_table_agg_HP[['HP_i0','HP_i1','HP_i2','HP_i3','HP_i3_1','HP_i4','HP_i5','HP_i5_1','HP_i6','HP_optimal']]
-    if test_mode:
+    if training_params_file=='training_params_list_test.json':
         for df_name in df_dict_agg_HP.keys():
             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['test_i0','test_i1']]
-    else:
+    elif training_params_file=='training_params_list_v1.json':
+            df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['HP_i0','HP_i1','HP_i2','HP_i3','HP_i4','HP_optimal']]
+    elif training_params_file=='training_params_list_v0.json':
         for df_name in df_dict_agg_HP.keys():
             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['HP_i0','HP_i1','HP_i2','HP_i3','HP_i3_1','HP_i4','HP_i5','HP_i5_1','HP_i6','HP_optimal']]
 
-
+    # 4. store and display HP df_performance_table_agg
 
     df_outputdir = task_outputdir+'HP_search/'
     if not os.path.exists(df_outputdir):
         os.makedirs(df_outputdir)
     print('HP df_performance_table_agg saved at', df_outputdir)
-#     df_performance_table_agg_HP.to_csv(df_outputdir+'df_performance_table_agg_HP.csv', encoding='utf-8')
+
     for df_name in df_dict_agg_HP.keys():
         df_dict_agg_HP[df_name].to_csv(df_outputdir+'df_performance_table_agg_HP_{}.csv'.format(df_name.split('_')[1]), encoding='utf-8')
-
 
     # Serialize data into file:
     json.dump({key:val for key, val in training_params_optimal.items() if key != 'device'}, open(df_outputdir+'training_params_optimal.json', 'w'))
 
-#     display(df_performance_table_agg_HP)
     for df_name in df_dict_agg_HP.keys():
         print('show', df_name)
         display(df_dict_agg_HP[df_name])
+        
+    # 5. run rep experiments
     
     df_sample = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
                                         'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params'], columns=[])
     df_dict_agg_rep = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
 
     for i in range(0,rep_n):
-#         df_performance_table = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
-#         df_performance_table_agg_rep['rep_i{}'.format(i)] = df_performance_table
         df_dict = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
         for df_name in df_dict_agg_rep.keys():
             df_dict_agg_rep[df_name]['rep_i{}'.format(i)] = df_dict[df_name].copy()
@@ -468,8 +462,6 @@ for task_item in tasks_list:
         os.makedirs(df_outputdir)
     print('df_performance_table_agg_rep saved at', df_outputdir)
 
-#     sys.exit()
-#     df_performance_table_agg_rep.to_csv(df_outputdir+'df_performance_table_agg_rep.csv', encoding='utf-8')
     for df_name in df_dict_agg_rep.keys():
         df_dict_agg_rep[df_name] = get_rep_stats(df_dict_agg_rep[df_name], rep_n)
         df_dict_agg_rep[df_name].to_csv(df_outputdir+'df_performance_table_agg_rep_{}.csv'.format(df_name.split('_')[1]), encoding='utf-8')
@@ -477,7 +469,6 @@ for task_item in tasks_list:
     # Serialize data into file:
     json.dump({key:val for key, val in training_params_optimal.items() if key != 'device'}, open(df_outputdir+'training_params_optimal.json', 'w'))
 
-#     display(df_performance_table_agg_rep)
     for df_name in df_dict_agg_rep.keys():
         print('show', df_name)
         display(df_dict_agg_rep[df_name])
