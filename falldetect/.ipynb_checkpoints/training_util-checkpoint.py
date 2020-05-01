@@ -678,9 +678,9 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
     domain_criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.01)
 
-    if show_diagnosis_plt:
-      model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-      model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+#     if show_diagnosis_plt:
+#       model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+#       model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 
     for epoch in range(num_epochs):
       train_performance_dict_list[epoch] = train_epoch_dann(src_train_loader, tgt_train_loader, device, 
