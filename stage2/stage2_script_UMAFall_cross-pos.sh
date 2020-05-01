@@ -17,8 +17,8 @@ training_params_file='training_params_list_v1.json'
 
 # inputdir='../../data_mic/stage1_preprocessed_NormalforAllAxes_18hz_5fold'
 # outputdir='../../data_mic/stage2_modeloutput_NormalforAllAxes_18hz_5fold_UMAFall_pos'
-inputdir='../../data_mic/stage1_preprocessed_WithoutNormal_18hz_5fold'
-outputdir='../../data_mic/stage2_modeloutput_WithoutNormal_18hz_5fold_UMAFall_pos'
+inputdir='../../data_mic/stage1/preprocessed_WithoutNormal_18hz_5fold'
+outputdir='../../data_mic/stage2/modeloutput_WithoutNormal_18hz_5fold_UMAFall_pos'
 mkdir -p $outputdir
 
 echo '=================================running stage 2================================='

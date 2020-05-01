@@ -14,7 +14,7 @@ echo '=================================running stage 3==========================
 
 echo '=================================running UPFall_UMAFall_cross_config================================='
 
-inputdir='../../data_mic/stage2_modeloutput_18hz_5fold'
+inputdir='../../data_mic/stage2/modeloutput_18hz_5fold'
 outputdir='../../data_mic/stage3/UPFall_UMAFall_cross_config'
 mkdir -p $outputdir
 
@@ -39,7 +39,7 @@ python stage3_model_eval.py \
 
 echo '=================================running UPFall_UMAFall_cross_config_norm================================='
 
-inputdir='../../data_mic/stage2_modeloutput_NormalforAllAxes_18hz_5fold'
+inputdir='../../data_mic/stage2/modeloutput_NormalforAllAxes_18hz_5fold'
 outputdir='../../data_mic/stage3/UPFall_UMAFall_cross_config_norm'
 mkdir -p $outputdir
 
@@ -65,7 +65,7 @@ python stage3_model_eval.py \
 
 echo '=================================running UPFall_UMAFall_cross_config_HPF================================='
 
-inputdir='../../data_mic/stage2_modeloutput_WithoutNormal_18hz_5fold_UPFall_UMAFall_cross-config'
+inputdir='../../data_mic/stage2/modeloutput_WithoutNormal_18hz_5fold_UPFall_UMAFall_cross-config'
 outputdir='../../data_mic/stage3/UPFall_UMAFall_cross_config_HPF'
 mkdir -p $outputdir
 
@@ -94,7 +94,7 @@ echo '**************************************************************************
 echo '=================================running UPFall_SFDLA_cross_config================================='
 
 
-inputdir='../../data_mic/stage2_modeloutput_18hz_5fold'
+inputdir='../../data_mic/stage2/modeloutput_18hz_5fold'
 outputdir='../../data_mic/stage3/UPFall_SFDLA_cross_config'
 mkdir -p $outputdir
 
@@ -120,7 +120,7 @@ python stage3_model_eval.py \
 
 echo '=================================running UPFall_SFDLA_cross_config_norm================================='
 
-inputdir='../../data_mic/stage2_modeloutput_NormalforAllAxes_18hz_5fold'
+inputdir='../../data_mic/stage2/modeloutput_NormalforAllAxes_18hz_5fold'
 outputdir='../../data_mic/stage3/SFDLA_UPFall_cross_config_norm'
 mkdir -p $outputdir
 
@@ -148,7 +148,7 @@ python stage3_model_eval.py \
 
 echo '=================================running UPFall_cross_pos_norm================================='
 
-inputdir='../../data_mic/stage2_modeloutput_NormalforAllAxes_18hz_5fold_UPFall_pos'
+inputdir='../../data_mic/stage2/modeloutput_NormalforAllAxes_18hz_5fold_UPFall_pos'
 outputdir='../../data_mic/stage3/UPFall_cross_pos_norm'
 mkdir -p $outputdir
 
@@ -162,7 +162,7 @@ python stage3_model_eval.py \
 
 echo '=================================running UPFall_cross_pos_HPF================================='
 
-inputdir='../../data_mic/stage2_modeloutput_WithoutNormal_18hz_5fold_UPFall_pos'
+inputdir='../../data_mic/stage2/modeloutput_WithoutNormal_18hz_5fold_UPFall_pos'
 outputdir='../../data_mic/stage3/UPFall_cross_pos_HPF'
 mkdir -p $outputdir
 
@@ -176,7 +176,7 @@ python stage3_model_eval.py \
 
 echo '=================================running UMAFall_cross_pos_norm================================='
 
-inputdir='../../data_mic/stage2_modeloutput_NormalforAllAxes_18hz_5fold_UMAFall_pos'
+inputdir='../../data_mic/stage2/modeloutput_NormalforAllAxes_18hz_5fold_UMAFall_pos'
 outputdir='../../data_mic/stage3/UMAFall_cross_pos_norm'
 mkdir -p $outputdir
 
@@ -189,17 +189,21 @@ python stage3_model_eval.py \
 | tee $outputdir/stage3_logs.txt
 
 echo '=================================running UMAFall_cross_pos_HPF================================='
-inputdir='../../data_mic/stage2_modeloutput_WithoutNormal_18hz_5fold_UMAFall_pos'
+inputdir='../../data_mic/stage2/modeloutput_WithoutNormal_18hz_5fold_UMAFall_pos'
 outputdir='../../data_mic/stage3/UMAFall_cross_pos_HPF'
 mkdir -p $outputdir
 
 python stage3_model_eval.py \
 --input_folder $inputdir \
 --output_folder $outputdir \
---tasks_list 'UMAFall_chest-UMAFall_wrist UMAFall_chest-UMAFall_waist UMAFall_chest-UMAFall_ankle UMAFall_wrist-UMAFall_chest UMAFall_wrist-UMAFall_waist UMAFall_wrist-UMAFall_ankle UMAFall_waist-UMAFall_chest UMAFall_waist-UMAFall_wrist UMAFall_waist-UMAFall_ankle UMAFall_ankle-UMAFall_chest UMAFall_ankle-UMAFall_wrist UMAFall_ankle-UMAFall_waist' \
---src_names 'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_ankle' \
---tgt_names 'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_ankle' \
+--tasks_list 'UMAFall_chest-UMAFall_wrist UMAFall_chest-UMAFall_waist UMAFall_chest-UMAFall_ankle UMAFall_wrist-UMAFall_chest UMAFall_wrist-UMAFall_waist UMAFall_wrist-UMAFall_ankle UMAFall_waist-UMAFall_chest UMAFall_waist-UMAFall_wrist UMAFall_waist-UMAFall_ankle UMAFall_ankle-UMAFall_chest UMAFall_ankle-UMAFall_wrist UMAFall_ankle-UMAFall_waist UMAFall_leg-UMAFall_chest UMAFall_leg-UMAFall_wrist UMAFall_leg-UMAFall_waist UMAFall_leg-UMAFall_ankle UMAFall_chest-UMAFall_leg UMAFall_wrist-UMAFall_leg UMAFall_waist-UMAFall_leg UMAFall_ankle-UMAFall_leg' \
+--src_names 'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_ankle UMAFall_leg' \
+--tgt_names 'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_ankle UMAFall_leg' \
 | tee $outputdir/stage3_logs.txt
+# --tasks_list 'UMAFall_chest-UMAFall_wrist UMAFall_chest-UMAFall_waist UMAFall_chest-UMAFall_ankle UMAFall_wrist-UMAFall_chest UMAFall_wrist-UMAFall_waist UMAFall_wrist-UMAFall_ankle UMAFall_waist-UMAFall_chest UMAFall_waist-UMAFall_wrist UMAFall_waist-UMAFall_ankle UMAFall_ankle-UMAFall_chest UMAFall_ankle-UMAFall_wrist UMAFall_ankle-UMAFall_waist' \
+# --src_names 'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_ankle' \
+# --tgt_names 'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_ankle' \
+# | tee $outputdir/stage3_logs.txt
 
 echo '************************************************************************************************************'
 

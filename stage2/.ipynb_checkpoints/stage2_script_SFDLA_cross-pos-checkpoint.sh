@@ -13,8 +13,8 @@ extractor_type='CNN'
 num_epochs=15
 CV_n=5
 rep_n=5
-inputdir='../../data_mic/stage1_preprocessed_NormalforAllAxes_18hz_5fold'
-outputdir='../../data_mic/stage2_modeloutput_NormalforAllAxes_18hz_5fold_SFDLA_pos'
+inputdir='../../data_mic/stage1/preprocessed_NormalforAllAxes_18hz_5fold'
+outputdir='../../data_mic/stage2/modeloutput_NormalforAllAxes_18hz_5fold_SFDLA_pos'
 mkdir -p $outputdir
 
 echo '=================================running stage 2================================='
