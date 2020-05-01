@@ -16,6 +16,7 @@ import time
 import datetime
 from datetime import datetime
 import json
+import math
 
 from sklearn.decomposition import PCA
 
@@ -132,12 +133,9 @@ class FeatureExtractor(nn.Module):
       # print('pool_layer3_dim:', pool_layer3_dim)
       # fc_dim = int(((((input_dim)+2*2-1)/2+2*2-1)/2+2*2-1)/2*64)
       # self.fc = nn.Linear(int(pool_layer2_dim)*32, num_classes)
-# <<<<<<< HEAD
       self.feature_out_dim = pool_layer2_dim*channel_n*2
       pytorch_total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
       print('FeatureExtractor_total_params:', pytorch_total_params)
-# =======
-# >>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
       
   def forward(self, x):
     out1 = self.layer1(x.float())
@@ -148,11 +146,7 @@ class FeatureExtractor(nn.Module):
     # print('out3 size:', out3.size())
     # out3 = out3.reshape(out3.size(0), -1)
     out2 = out2.reshape(out2.size(0), -1)
-# <<<<<<< HEAD
     # print('out2 size:', out2.size())
-# =======
-    # print('out3 size:', out3.size())
-# >>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
     # out3 = self.fc(out2)
     # print('x, out1, out2, out 3, out4 size',  x.size(), out1.size(), out2.size(), out3.size(), out4.size())
     return out2
@@ -203,7 +197,6 @@ class DannModel(nn.Module):
     pool_layer2_dim = (cnn_layer2_dim-1*(2-1)-1)/2+1
 
     feature_out_dim = int(pool_layer2_dim*channel_n*2)
-# <<<<<<< HEAD
     self.class_classfier = ClassClassifier(num_classes=class_N, input_dim=feature_out_dim).to(device).float()
     self.domain_classifier = DomainClassifier(num_classes=domain_N, input_dim=feature_out_dim).to(device).float()
 
@@ -211,26 +204,12 @@ class DannModel(nn.Module):
     print('DannModel_total_params:', pytorch_total_params)
     
 
-# =======
-
-    self.class_classfier = ClassClassifier(num_classes=class_N, input_dim=feature_out_dim).to(device).float()
-    self.domain_classifier = DomainClassifier(num_classes=domain_N, input_dim=feature_out_dim).to(device).float()
-      
-# >>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
   def forward(self, x):
     feature_out = self.feature_extractor(x)
     class_output = self.class_classfier(feature_out)
     domain_output = self.domain_classifier(feature_out, 1)
-# <<<<<<< HEAD
     return feature_out, class_output, domain_output
 
-# =======
-    # return feature_out
-#     return feature_out, class_output, domain_output
-
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# dann = DannModel(device, class_N=2, domain_N=2, input_dim=66).to(device).float()
-# >>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
 
 class BaselineModel(nn.Module):
   def __init__(self, device, class_N=2, channel_n=16, input_dim=10):
@@ -255,7 +234,6 @@ class BaselineModel(nn.Module):
     # return feature_out
     return feature_out, class_out
 
-# <<<<<<< HEAD
 
 
 
@@ -486,7 +464,3 @@ class DomainClassifier_lstm(nn.Module):
 #       print('out3 size:', out3.size())
       
 #     return out3
-# =======
-# device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-# model = BaselineModel(device, class_N=2, channel_n=10, input_dim=66).to(device).float()
-# >>>>>>> 13252fce46b87f1c9c9f8b01ca714d9b2f501eda
