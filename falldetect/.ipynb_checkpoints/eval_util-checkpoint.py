@@ -38,12 +38,13 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 dpi = 80
 
-def baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, i_CV, outputdir):
+def baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, PAD_list, i_CV, outputdir):
   train_performance_epochs = pd.DataFrame(train_performance_dict_list)
   val_src_performance_epochs = pd.DataFrame(val_src_performance_dict_list)
   val_tgt_performance_epochs = pd.DataFrame(val_tgt_performance_dict_list)
 
-  metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1']
+#   metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1']
+  metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1', 'PAD']
 
   if not os.path.exists(outputdir):
       os.makedirs(outputdir)
@@ -51,74 +52,20 @@ def baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src
   fig = plt.figure(figsize=(5*len(metric_list), 3), dpi=dpi)
 
   for i, metric_name in enumerate(metric_list):
-	  ax1 = fig.add_subplot(1, len(metric_list), i+1)
-	  ax1.set_title('{}_epochs'.format(metric_name))
-	  ax1.set_xlabel('epoch')
-	  ax1.plot(np.arange(num_epochs), train_performance_epochs['{}'.format(metric_name)].values, color='blue', label='train')
-	  ax1.plot(np.arange(num_epochs), val_src_performance_epochs['src_{}'.format(metric_name)].values, color='red', label='val_src')
-	  ax1.plot(np.arange(num_epochs), val_tgt_performance_epochs['tgt_{}'.format(metric_name)].values, color='green', label='val_tgt')
-	  ax1.legend(loc="upper right")
-  plt.show()
-  fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
+    ax1 = fig.add_subplot(1, len(metric_list), i+1)
+    ax1.set_title('{}_epochs'.format(metric_name))
+    ax1.set_xlabel('epoch')
+    if metric_name=='PAD':
+      ax1.plot(np.arange(num_epochs), PAD_list, color='blue', label='PAD_val')
+    else:
+      ax1.plot(np.arange(num_epochs), train_performance_epochs['{}'.format(metric_name)].values, color='blue', label='train')
+      ax1.plot(np.arange(num_epochs), val_src_performance_epochs['src_{}'.format(metric_name)].values, color='red', label='val_src')
+      ax1.plot(np.arange(num_epochs), val_tgt_performance_epochs['tgt_{}'.format(metric_name)].values, color='green', label='val_tgt')
+    ax1.legend(loc="upper right")
+#     plt.show()
+    fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 
-
-#   ax1 = fig.add_subplot(1, 3, 1)
-#   ax1.set_title('loss_epochs')
-#   ax1.set_xlabel('epoch')
-#   ax1.plot(np.arange(num_epochs), train_performance_epochs['train_loss'].values, color='blue', label='train')
-#   ax1.plot(np.arange(num_epochs), val_src_performance_epochs['val_src_loss'].values, color='red', label='val_src')
-#   ax1.plot(np.arange(num_epochs), val_tgt_performance_epochs['val_tgt_loss'].values, color='green', label='val_tgt')
-#   ax1.legend(loc="upper right")
-#   ax2 = fig.add_subplot(1, 3, 2)
-#   ax2.set_title('class_acc_epochs')
-#   ax2.set_xlabel('epoch')
-#   ax2.plot(np.arange(num_epochs), train_performance_epochs['train_acc'].values, color='blue', label='train')
-#   ax2.plot(np.arange(num_epochs),  val_src_performance_epochs['val_src_acc'].values, color='red', label='val_src')
-#   ax2.plot(np.arange(num_epochs),  val_tgt_performance_epochs['val_tgt_acc'].values, color='green', label='val_tgt')
-#   ax2.legend(loc="upper right")
-#   ax2 = fig.add_subplot(1, 3, 3)
-#   ax2.set_title('class_sensitivity_epochs')
-#   ax2.set_xlabel('epoch')
-#   ax2.plot(np.arange(num_epochs), train_performance_epochs['train_sensitivity'].values, color='blue', label='train')
-#   ax2.plot(np.arange(num_epochs),  val_src_performance_epochs['val_src_sensitivity'].values, color='red', label='val_src')
-#   ax2.plot(np.arange(num_epochs),  val_tgt_performance_epochs['val_tgt_sensitivity'].values, color='green', label='val_tgt')
-#   ax2.legend(loc="upper right")
-#   plt.show()
-#   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
-	
-# def baseline_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_src_loss_avg_epochs, val_tgt_loss_avg_epochs, train_class_acc_epochs, val_src_class_acc_epochs, val_tgt_class_acc_epochs, i_CV, outputdir):
-#   model.eval()
-
-#   if not os.path.exists(outputdir):
-#       os.makedirs(outputdir)
-#   print('outputdir for baseline_learning_diagnosis output:', outputdir)
-#   fig = plt.figure(figsize=(10, 3), dpi=dpi)
-#   ax1 = fig.add_subplot(1, 2, 1)
-#   ax1.set_title('loss_avg_epochs')
-#   ax1.set_xlabel('epoch')
-#   ax1.plot(np.arange(num_epochs), train_loss_avg_epochs, color='blue', label='train')
-#   ax1.plot(np.arange(num_epochs), val_src_loss_avg_epochs, color='red', label='val_src')
-#   ax1.plot(np.arange(num_epochs), val_tgt_loss_avg_epochs, color='green', label='val_tgt')
-#   ax1.legend(loc="upper right")
-#   ax2 = fig.add_subplot(1, 2, 2)
-#   ax2.set_title('class_acc_epochs')
-#   ax2.set_xlabel('epoch')
-#   ax2.plot(np.arange(num_epochs), train_class_acc_epochs, color='blue', label='train')
-#   ax2.plot(np.arange(num_epochs), val_src_class_acc_epochs, color='red', label='val_src')
-#   ax2.plot(np.arange(num_epochs), val_tgt_class_acc_epochs, color='green', label='val_tgt')
-#   ax2.legend(loc="upper right")
-#   plt.show()
-#   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
-
-# def dann_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_loss_avg_epochs, \
-# train_src_class_acc_epochs, val_src_class_acc_epochs, \
-# train_tgt_class_acc_epochs, val_tgt_class_acc_epochs, \
-# train_domain_acc, val_domain_acc, i_CV, outputdir):
-# def dann_learning_diagnosis(num_epochs, train_loss_avg_epochs, val_loss_avg_epochs, \
-# train_src_class_acc_epochs, val_src_class_acc_epochs, \
-# train_tgt_class_acc_epochs, val_tgt_class_acc_epochs, \
-# train_domain_acc, val_domain_acc, i_CV, outputdir):
-def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, i_CV, outputdir):
+def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir):
   train_performance_epochs = pd.DataFrame(train_performance_dict_list)
   val_performance_epochs = pd.DataFrame(val_performance_dict_list)
 
@@ -126,20 +73,21 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
       os.makedirs(outputdir)
   print('outputdir for dann_learning_diagnosis output:', outputdir)
 
-#   metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1']
-#   metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'domain_acc']
-  metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc']
+#   metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc']
+  metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc', 'PAD']
   fig = plt.figure(figsize=(5*len(metric_list), 3), dpi=dpi)
 
   for i, metric_name in enumerate(metric_list):
-    ax1 = fig.add_subplot(1, len(metric_list), i+1)
-    ax1.set_title('{}_epochs'.format(metric_name))
-    ax1.set_xlabel('epoch')
-    ax1.plot(np.arange(num_epochs), train_performance_epochs[metric_name].values, color='blue', label='train')
-    ax1.plot(np.arange(num_epochs), val_performance_epochs[metric_name].values, color='red', label='val')
-    ax1.legend(loc="upper right")
-
-  plt.show()
+      ax1 = fig.add_subplot(1, len(metric_list), i+1)
+      ax1.set_title('{}_epochs'.format(metric_name))
+      ax1.set_xlabel('epoch')
+      if metric_name=='PAD':
+        ax1.plot(np.arange(num_epochs), PAD_list, color='blue', label='PAD_val')
+      else:
+        ax1.plot(np.arange(num_epochs), train_performance_epochs[metric_name].values, color='blue', label='train')
+        ax1.plot(np.arange(num_epochs), val_performance_epochs[metric_name].values, color='red', label='val')
+        ax1.legend(loc="upper right")
+#   plt.show()
   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 
 def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name, ax_idx):
@@ -325,13 +273,58 @@ def get_mean(mean_std):
 def get_std(mean_std):
   return float(mean_std.split('±')[1])
 
+def get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000):
+#         start_time = time.time()
+
+	model.eval()
+
+	data = src_train_loader.dataset.data.to(device)
+	src_domain_labels = np.zeros(data.shape[0])
+	src_feature_out, _, _ = model(data)
+
+	data = tgt_train_loader.dataset.data.to(device)
+	tgt_domain_labels = np.ones(data.shape[0])
+	tgt_feature_out, _, _ = model(data)
+
+	train_data = np.concatenate((src_feature_out.data.detach().cpu().numpy(),tgt_feature_out.data.detach().cpu().numpy()),axis=0)
+	train_label = np.concatenate((src_domain_labels,tgt_domain_labels))
+
+# 	print(train_data.shape, train_label.shape)
+
+	svm_model = svm.SVC(C=c, probability=True)
+	svm_model.fit(train_data, train_label)
+
+	data = src_val_loader.dataset.data.to(device)
+	src_domain_labels = np.zeros(data.shape[0])
+	src_feature_out, _, _ = model(data)
+
+	data = tgt_val_loader.dataset.data.to(device)
+	tgt_domain_labels = np.ones(data.shape[0])
+	tgt_feature_out, _, _ = model(data)
+
+	val_data = np.concatenate((src_feature_out.data.detach().cpu().numpy(),tgt_feature_out.data.detach().cpu().numpy()),axis=0)
+	val_label = np.concatenate((src_domain_labels,tgt_domain_labels))
+
+	svm_out = svm_model.predict_proba(val_data)
+	mse = mean_squared_error(val_label, svm_out[:,1])
+	PAD = 2. * (1. - 2. * mse)
+# 	print('\nmse=', mse)
+# 	print('PAD=', PAD)
+
+#         time_elapsed = time.time() - start_time
+#         print('time elapsed:', time.strftime("%H:%M:%S", time.gmtime(time_elapsed)))
+
+#         sys.exit()
+
+	return PAD
+
 def modification_date(filename):
     t = os.path.getmtime(filename)
     return datetime.datetime.fromtimestamp(t)
 
 
 def get_rep_stats(df_performance_table_agg, rep_n):
-	df_acc = df_performance_table_agg.loc[ ['source', 'DANN', 'target', 'domain'] , ].copy()
+	df_acc = df_performance_table_agg.loc[ ['source', 'DANN', 'target', 'domain', 'PAD_source', 'PAD_DANN'] , ].copy()
 	df_params = df_performance_table_agg.loc[ ['channel_n', 'batch_size', 'learning_rate', 'time_elapsed', 'num_params'], ].copy()
 
     # accs
@@ -346,8 +339,8 @@ def get_rep_stats(df_performance_table_agg, rep_n):
 	df_params_means = df_params.mean(axis=1)
 
 	df_performance_table_agg['rep_avg'] = ''
-	df_performance_table_agg.loc[ ['source', 'DANN', 'target', 'domain'] , ['rep_avg']] = df_performance_table_all_mean.loc[:, 'rep']
-	df_performance_table_agg.loc[ ['channel_n', 'batch_size', 'learning_rate', 'time_elapsed', 'num_params'] , ['rep_avg']] = df_params_means
+	df_performance_table_agg.loc[ ['source','DANN','target','domain','PAD_source','PAD_DANN'] , ['rep_avg']] = df_performance_table_all_mean.loc[:, 'rep']
+	df_performance_table_agg.loc[ ['channel_n','batch_size','learning_rate','time_elapsed','num_params'], ['rep_avg']] = df_params_means
 	return df_performance_table_agg
 
 

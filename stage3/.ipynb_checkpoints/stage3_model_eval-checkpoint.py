@@ -23,6 +23,8 @@ import numpy as np
 import copy
 import pandas as pd
 pd.set_option('display.max_columns', 500)
+pd.options.display.float_format = "{:,.3f}".format
+
 from tqdm import tqdm_notebook as tqdm
 from IPython.display import display
 import os
@@ -64,7 +66,7 @@ import torch.nn.functional as F
 # # Get user inputs
 # In ipython notebook, these are hardcoded. In production python code, use parsers to provide these inputs
 
-# In[3]:
+# In[9]:
 
 
 parser = argparse.ArgumentParser(description='FD_DAT')
@@ -93,7 +95,8 @@ parser.add_argument('--tgt_names', metavar='tgt_names', help='a list of tgt_name
 # split_mode = '5fold'
 
 # checklist 2: comment first line, uncomment second line seizures_FN
-# args = parser.parse_args(['--input_folder', '../../data_mic/stage2_modeloutput_18hz_5fold', 
+
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_WithoutNormal_18hz_5fold_UPFall_UMAFall_cross-config', 
 #                           '--output_folder', '../../data_mic/stage3/UMAFall_UPFall_cross-config',
 #                           '--tasks_list', 'UMAFall_chest-UPFall_neck UMAFall_wrist-UPFall_wrist UMAFall_waist-UPFall_belt UMAFall_leg-UPFall_rightpocket UMAFall_ankle-UPFall_ankle',
 #                           '--src_names',  'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_leg UMAFall_ankle',
@@ -108,7 +111,7 @@ args = parser.parse_args()
 
 
 
-# In[4]:
+# In[10]:
 
 
 home_dir = home+'/project_FDDAT/'
@@ -156,7 +159,7 @@ outputdir = output_folder + '/'
 
 
 
-# In[5]:
+# In[11]:
 
 
 df_metric_keys = ['df_acc', 'df_sensitivity', 'df_precision', 'df_F1']
@@ -211,7 +214,7 @@ for training_setting in finetuned_results.keys():
 
 
 
-# In[27]:
+# In[14]:
 
 
 df_task_list = dict( zip(df_metric_keys,[[], [], [], []]))
@@ -225,7 +228,15 @@ for task_item in tasks_list:
         else:
             continue
         df_task.rename(columns={'rep_avg':src_name+'_'+tgt_name}, inplace=True)
-        df_task.loc['improvement'] = float(df_task.loc['DANN'].values[0].split('±')[0])-float(df_task.loc['source'].values[0].split('±')[0])
+        
+        improve_DANN = float(df_task.loc['DANN'].values[0].split('±')[0])-float(df_task.loc['source'].values[0].split('±')[0])
+        improve_target = float(df_task.loc['target'].values[0].split('±')[0])-float(df_task.loc['source'].values[0].split('±')[0])
+        df_task.loc['DANN'] = '{}({:+.3f})'.format(df_task.loc['DANN'].values[0], improve_DANN)
+        df_task.loc['target'] = '{}({:+.3f})'.format(df_task.loc['target'].values[0], improve_target)
+        
+        if 'PAD_source' in df_task.index:
+            improve_PAD_source = float(df_task.loc['PAD_DANN'].values[0].split('±')[0])-float(df_task.loc['PAD_source'].values[0].split('±')[0])
+            df_task.loc['PAD_DANN'] = '{}({:+.3f})'.format(df_task.loc['PAD_DANN'].values[0], improve_PAD_source)
         df_task_list[metric_name].append(df_task)
     
     
@@ -239,17 +250,28 @@ for metric_name in df_metric_keys:
     print('will export data to', outputdir)
     
     df_task_list[metric_name] = pd.concat(df_task_list[metric_name], axis=1)
-#     df_task_copy = pd.concat(df_task_list[metric_name], axis=1).copy()
-#     df_task_copy
+
     df_task_copy = df_task_list[metric_name].copy()
-    df_task_list[metric_name].at['source', 'average'] = df_task_copy.loc['source'].apply(get_mean).mean()
-    df_task_list[metric_name].at['DANN', 'average'] = df_task_copy.loc['DANN'].apply(get_mean).mean()
+    perf_source = df_task_copy.loc['source'].apply(get_mean).mean()
+    perf_DANN = df_task_copy.loc['DANN'].apply(get_mean).mean()
+    perf_target = df_task_copy.loc['target'].apply(get_mean).mean()
+    df_task_list[metric_name].at['source', 'average'] = perf_source
     df_task_list[metric_name].at['target', 'average'] = df_task_copy.loc['target'].apply(get_mean).mean()
     df_task_list[metric_name].at['domain', 'average'] = df_task_copy.loc['domain'].apply(get_mean).mean()
-    df_task_list[metric_name].at['improvement', 'average'] = df_task_copy.loc['improvement'].mean()
+    df_task_list[metric_name]['average'] = df_task_list[metric_name]['average'].astype(object)
+    df_task_list[metric_name].at['DANN', 'average'] =  '{:.3f}({:+.3f})'.format(perf_DANN,perf_DANN-perf_source)
+    df_task_list[metric_name].at['target', 'average'] =  '{:.3f}({:+.3f})'.format(perf_target,perf_target-perf_source)
 
+    if 'PAD_source' in df_task_copy.index:
+        PAD_source = df_task_copy.loc['PAD_source'].apply(get_mean).mean()
+        PAD_DANN = df_task_copy.loc['PAD_DANN'].apply(get_mean).mean()
+        df_task_list[metric_name].at['PAD_source', 'average'] = PAD_source
+        df_task_list[metric_name].at['PAD_DANN', 'average'] = '{:.3f}({:.3f})'.format(PAD_DANN,PAD_DANN-PAD_source)
+        df_task_list[metric_name] = df_task_list[metric_name].reindex(['channel_n','batch_size','learning_rate','time_elapsed','num_params',                       'source','DANN','target','domain','PAD_source','PAD_DANN'])  
+    else:
+        df_task_list[metric_name] = df_task_list[metric_name].reindex(['channel_n','batch_size','learning_rate','time_elapsed','num_params',                   'source','DANN','target','domain'])  
     
-    df_task_list[metric_name] = df_task_list[metric_name].reindex(['channel_n', 'batch_size', 'learning_rate', 'time_elapsed', 'num_params',                   'source', 'DANN', 'target', 'domain', 'improvement'])  
+    df_task_list[metric_name].loc['time_elapsed'] = df_task_list[metric_name].loc['time_elapsed'].astype(float)
     display(df_task_list[metric_name])
     df_task_list[metric_name].to_csv(outputdir+'df_performance_table_agg_{}.csv'.format(metric_name.split('_')[1]), encoding='utf-8')
     df_task_list[metric_name].to_excel(writer, sheet_name=metric_name.split('_')[1])
@@ -257,16 +279,10 @@ for metric_name in df_metric_keys:
 writer.save()
 
 
-# In[ ]:
+# In[13]:
 
 
-
-
-
-# In[ ]:
-
-
-
+df_task_list[metric_name]
 
 
 # In[ ]:
@@ -275,7 +291,13 @@ writer.save()
 
 
 
-# In[10]:
+# In[ ]:
+
+
+
+
+
+# In[ ]:
 
 
 # from matplotlib import animation, rc
@@ -360,7 +382,7 @@ writer.save()
 #     return anim
 
 
-# In[11]:
+# In[ ]:
 
 
 # data = src_data.data.detach().cpu().numpy().transpose(0,2,1)
@@ -370,7 +392,7 @@ writer.save()
 # HTML(anim.to_html5_video())
 
 
-# In[12]:
+# In[ ]:
 
 
 # data.shape, labels.shape

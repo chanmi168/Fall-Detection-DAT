@@ -441,7 +441,7 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
                                          'val_src_acc','val_tgt_acc',
                                          'val_src_sensitivity','val_tgt_sensitivity',
                                          'val_src_precision','val_tgt_precision',
-                                         'val_src_F1','val_tgt_F1'])
+                                         'val_src_F1','val_tgt_F1','PAD'])
 
   src_dataset_name = src_name.split('_')[0]
   src_sensor_loc = src_name.split('_')[1]
@@ -479,6 +479,8 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
     val_src_performance_dict_list = list( {} for i in range(num_epochs) )
     val_tgt_performance_dict_list = list( {} for i in range(num_epochs) )
 
+    PAD_list = [0] * num_epochs
+	
     # model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
     if extractor_type == 'CNN':
       model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
@@ -511,20 +513,32 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
 
       val_tgt_performance_dict = val_epoch(tgt_val_loader, device, model, class_criterion, optimizer, epoch, 'tgt')
       val_tgt_performance_dict_list[epoch] = val_tgt_performance_dict
+		
+      PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
+      PAD_list[epoch] = PAD
 
+#     fig = plt.figure(figsize=(5, 3), dpi=80)
+#     ax1 = fig.add_subplot(1, 1, 1)
+#     ax1.set_title('PAD')
+#     ax1.set_xlabel('epoch')
+#     ax1.plot(np.arange(num_epochs), PAD_list, label='PAD')
+#     ax1.legend(loc="upper right")
+
+
+	
     df_performance.loc[i_CV,['i_CV',
 							 'val_src_acc','val_tgt_acc',
 							 'val_src_sensitivity','val_tgt_sensitivity',
 							 'val_src_precision','val_tgt_precision',
-							 'val_src_F1','val_tgt_F1']] = [i_CV, 
+							 'val_src_F1','val_tgt_F1', 'PAD']] = [i_CV, 
 															val_src_performance_dict_list[epoch]['src_acc'], val_tgt_performance_dict_list[epoch]['tgt_acc'],
 															val_src_performance_dict_list[epoch]['src_sensitivity'], val_tgt_performance_dict_list[epoch]['tgt_sensitivity'], 
 															val_src_performance_dict_list[epoch]['src_precision'], val_tgt_performance_dict_list[epoch]['tgt_precision'], 
-															val_src_performance_dict_list[epoch]['src_F1'], val_tgt_performance_dict_list[epoch]['tgt_F1']]
+															val_src_performance_dict_list[epoch]['src_F1'], val_tgt_performance_dict_list[epoch]['tgt_F1'], PAD_list[epoch]]
 	
     
     if show_diagnosis_plt:
-      baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, i_CV, outputdir)
+      baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, PAD_list, i_CV, outputdir)
 
     print('-----------------Exporting pytorch model-----------------')
     if extractor_type == 'CNN':
@@ -618,7 +632,7 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
 							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
 							 'val_src_class_precision','val_tgt_class_precision',
 							 'val_src_class_F1','val_tgt_class_F1',
-							 'val_domain_acc',])
+							 'val_domain_acc','PAD'])
 	
   src_dataset_name = src_name.split('_')[0]
   src_sensor_loc = src_name.split('_')[1]
@@ -656,7 +670,7 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
 
     train_performance_dict_list = list( {} for i in range(num_epochs) )
     val_performance_dict_list = list( {} for i in range(num_epochs) )
-
+    PAD_list = [0] * num_epochs
 
     if extractor_type == 'CNN':
       model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
@@ -690,23 +704,31 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
       val_performance_dict_list[epoch] = val_epoch_dann(src_val_loader, tgt_val_loader, device, 
                                       model,
                                       class_criterion, domain_criterion, epoch)
+      PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
+      PAD_list[epoch] = PAD
 
+#     fig = plt.figure(figsize=(5, 3), dpi=80)
+#     ax1 = fig.add_subplot(1, 1, 1)
+#     ax1.set_title('PAD')
+#     ax1.set_xlabel('epoch')
+#     ax1.plot(np.arange(num_epochs), PAD_list, label='PAD')
+#     ax1.legend(loc="upper right")
 
     df_performance.loc[i_CV,['i_CV', 
 							 'val_src_class_acc','val_tgt_class_acc',
 							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
 							 'val_src_class_precision','val_tgt_class_precision',
 							 'val_src_class_F1','val_tgt_class_F1',
-							 'val_domain_acc']] = [i_CV, 
+							 'val_domain_acc', 'PAD']] = [i_CV, 
 												   val_performance_dict_list[epoch]['src_class_acc'], val_performance_dict_list[epoch]['tgt_class_acc'], 
 												   val_performance_dict_list[epoch]['src_sensitivity'], val_performance_dict_list[epoch]['tgt_sensitivity'], 
 												   val_performance_dict_list[epoch]['src_precision'], val_performance_dict_list[epoch]['tgt_precision'], 
 												   val_performance_dict_list[epoch]['src_F1'], val_performance_dict_list[epoch]['tgt_F1'], 
-												   val_performance_dict_list[epoch]['domain_acc']]
+												   val_performance_dict_list[epoch]['domain_acc'], PAD_list[epoch]]
 							 
 	
     if show_diagnosis_plt:
-      dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, i_CV, outputdir)
+      dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir)
     
     print('-----------------Exporting pytorch model-----------------')
     # loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
@@ -803,7 +825,7 @@ def performance_table(src_name, tgt_name, training_params, inputdir, outputdir):
   def get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, metric_name, time_elapsed):
 	
     df_performance_table = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
-                                                  'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params'], columns=[])
+                                                  'source', 'DANN', 'target', 'domain', 'PAD_source', 'PAD_DANN', 'time_elapsed', 'num_params'], columns=[])
 
     df_performance_table.loc['channel_n',training_params['HP_name']] = training_params['channel_n']
     df_performance_table.loc['batch_size',training_params['HP_name']] = training_params['batch_size']
@@ -812,6 +834,8 @@ def performance_table(src_name, tgt_name, training_params, inputdir, outputdir):
     df_performance_table.loc['DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_tgt_class_{}'.format(metric_name)], df_performance_dann.loc['std']['val_tgt_class_{}'.format(metric_name)])
     df_performance_table.loc['target',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_tgt.loc['mean']['val_src_{}'.format(metric_name)], df_performance_tgt.loc['std']['val_src_{}'.format(metric_name)])
     df_performance_table.loc['domain',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_domain_acc'], df_performance_dann.loc['std']['val_domain_acc'])
+    df_performance_table.loc['PAD_source',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_src.loc['mean']['PAD'], df_performance_dann.loc['std']['PAD'])
+    df_performance_table.loc['PAD_DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['PAD'], df_performance_dann.loc['std']['PAD'])
     df_performance_table.loc['time_elapsed',training_params['HP_name']] = time_elapsed
     df_performance_table.loc['num_params',training_params['HP_name']] = num_params
 	

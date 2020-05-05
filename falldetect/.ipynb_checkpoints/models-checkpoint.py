@@ -18,6 +18,12 @@ from datetime import datetime
 import json
 import math
 
+import random
+from collections import Counter
+from sklearn import svm
+from scipy.sparse import csr_matrix
+from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error
 from sklearn.decomposition import PCA
 
 import torch
@@ -26,56 +32,56 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# Convolutional neural network (two convolutional layers)
-class ConvNet(nn.Module):
-  def __init__(self, num_classes=10, input_dim=50):
-      super(ConvNet, self).__init__()
-      self.layer1 = nn.Sequential(
-          nn.Conv1d(3, 16, kernel_size=3, stride=1, padding=2),
-          nn.BatchNorm1d(16),
-          nn.ReLU(),
-          nn.MaxPool1d(kernel_size=2, stride=2))
-      self.layer2 = nn.Sequential(
-          nn.Conv1d(16, 32, kernel_size=3, stride=1, padding=2),
-          nn.BatchNorm1d(32),
-          nn.ReLU(),
-          nn.MaxPool1d(kernel_size=2, stride=2))
-      self.layer3 = nn.Sequential(
-          nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=2),
-          nn.BatchNorm1d(64),
-          nn.ReLU(),
-          nn.MaxPool1d(kernel_size=2, stride=2))
+# # Convolutional neural network (two convolutional layers)
+# class ConvNet(nn.Module):
+#   def __init__(self, num_classes=10, input_dim=50):
+#       super(ConvNet, self).__init__()
+#       self.layer1 = nn.Sequential(
+#           nn.Conv1d(3, 16, kernel_size=3, stride=1, padding=2),
+#           nn.BatchNorm1d(16),
+#           nn.ReLU(),
+#           nn.MaxPool1d(kernel_size=2, stride=2))
+#       self.layer2 = nn.Sequential(
+#           nn.Conv1d(16, 32, kernel_size=3, stride=1, padding=2),
+#           nn.BatchNorm1d(32),
+#           nn.ReLU(),
+#           nn.MaxPool1d(kernel_size=2, stride=2))
+#       self.layer3 = nn.Sequential(
+#           nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=2),
+#           nn.BatchNorm1d(64),
+#           nn.ReLU(),
+#           nn.MaxPool1d(kernel_size=2, stride=2))
       
-      cnn_layer1_dim = (input_dim+2*2-1*(3-1)-1)+1
-      pool_layer1_dim = (cnn_layer1_dim-1*(2-1)-1)/2+1
+#       cnn_layer1_dim = (input_dim+2*2-1*(3-1)-1)+1
+#       pool_layer1_dim = (cnn_layer1_dim-1*(2-1)-1)/2+1
 
-      cnn_layer2_dim = (pool_layer1_dim+2*2-1*(3-1)-1)+1
-      pool_layer2_dim = (cnn_layer2_dim-1*(2-1)-1)/2+1
+#       cnn_layer2_dim = (pool_layer1_dim+2*2-1*(3-1)-1)+1
+#       pool_layer2_dim = (cnn_layer2_dim-1*(2-1)-1)/2+1
 
-      cnn_layer3_dim = (pool_layer2_dim+2*2-1*(3-1)-1)+1
-      pool_layer3_dim = (cnn_layer3_dim-1*(2-1)-1)/2+1
+#       cnn_layer3_dim = (pool_layer2_dim+2*2-1*(3-1)-1)+1
+#       pool_layer3_dim = (cnn_layer3_dim-1*(2-1)-1)/2+1
 
-      # print('cnn_layer1_dim:', cnn_layer1_dim)
-      # print('pool_layer1_dim:', pool_layer1_dim)
-      # print('cnn_layer2_dim:', cnn_layer2_dim)
-      # print('pool_layer2_dim:', pool_layer2_dim)
-      # print('cnn_layer3_dim:', cnn_layer3_dim)
-      # print('pool_layer3_dim:', pool_layer3_dim)
-      # fc_dim = int(((((input_dim)+2*2-1)/2+2*2-1)/2+2*2-1)/2*64)
-      self.fc = nn.Linear(int(pool_layer3_dim)*64, num_classes)
+#       # print('cnn_layer1_dim:', cnn_layer1_dim)
+#       # print('pool_layer1_dim:', pool_layer1_dim)
+#       # print('cnn_layer2_dim:', cnn_layer2_dim)
+#       # print('pool_layer2_dim:', pool_layer2_dim)
+#       # print('cnn_layer3_dim:', cnn_layer3_dim)
+#       # print('pool_layer3_dim:', pool_layer3_dim)
+#       # fc_dim = int(((((input_dim)+2*2-1)/2+2*2-1)/2+2*2-1)/2*64)
+#       self.fc = nn.Linear(int(pool_layer3_dim)*64, num_classes)
       
-  def forward(self, x):
-    out1 = self.layer1(x.float())
-    # print('out1 size:', out1.size())
-    out2 = self.layer2(out1)
-    # print('out2 size:', out2.size())
-    out3 = self.layer3(out2)
-    # print('out3 size:', out3.size())
-    out3 = out3.reshape(out3.size(0), -1)
-    # print('out3 size:', out3.size())
-    out4 = self.fc(out3)
-    # print('x, out1, out2, out 3, out4 size',  x.size(), out1.size(), out2.size(), out3.size(), out4.size())
-    return out4
+#   def forward(self, x):
+#     out1 = self.layer1(x.float())
+#     # print('out1 size:', out1.size())
+#     out2 = self.layer2(out1)
+#     # print('out2 size:', out2.size())
+#     out3 = self.layer3(out2)
+#     # print('out3 size:', out3.size())
+#     out3 = out3.reshape(out3.size(0), -1)
+#     # print('out3 size:', out3.size())
+#     out4 = self.fc(out3)
+#     # print('x, out1, out2, out 3, out4 size',  x.size(), out1.size(), out2.size(), out3.size(), out4.size())
+#     return out4
 
 
 class GradReverse(torch.autograd.Function):
@@ -151,50 +157,88 @@ class FeatureExtractor(nn.Module):
     # print('x, out1, out2, out 3, out4 size',  x.size(), out1.size(), out2.size(), out3.size(), out4.size())
     return out2
 
-# fall classifier neural network (fc layers)
+# TODO: TBD
+# # fall classifier neural network (fc layers)
+# class ClassClassifier(nn.Module):
+#   def __init__(self, num_classes=10, input_dim=50):
+#       super(ClassClassifier, self).__init__()
+#       self.fc = nn.Linear(input_dim, num_classes)
+      
+#   def forward(self, x):
+#     # out1 = F.relu(self.fc(x))
+#     out1 = self.fc(x.float())
+#     return out1
+
+# # domain classifier neural network (fc layers)
+# class DomainClassifier(nn.Module):
+#   def __init__(self, num_classes=10, input_dim=50):
+#       super(DomainClassifier, self).__init__()
+#       self.fc = nn.Linear(input_dim, num_classes)
+      
+#   def forward(self, x, constant):
+#     out1 = GradReverse.grad_reverse(x.float(), constant)
+#     # out2 = F.relu(self.fc(out1))
+#     out2 = self.fc(out1)
+#     return out2
+
+
+HIDDEN_DIM = 50
 class ClassClassifier(nn.Module):
   def __init__(self, num_classes=10, input_dim=50):
       super(ClassClassifier, self).__init__()
-      self.fc = nn.Linear(input_dim, num_classes)
-      
+      self.fc1 = nn.Linear(input_dim, HIDDEN_DIM)
+      self.fc2 = nn.Linear(HIDDEN_DIM, num_classes)
+      self.drop = nn.Dropout(p=0.5)
+      self.relu = nn.ReLU()
+    
   def forward(self, x):
-    # out1 = F.relu(self.fc(x))
-    out1 = self.fc(x.float())
-    return out1
+    out1 = self.relu(self.fc1(x.float()))
+    out2 = self.fc2(out1)
+    return out2
 
 # domain classifier neural network (fc layers)
 class DomainClassifier(nn.Module):
   def __init__(self, num_classes=10, input_dim=50):
       super(DomainClassifier, self).__init__()
-      self.fc = nn.Linear(input_dim, num_classes)
+#       self.fc = nn.Linear(input_dim, num_classes)
+      self.fc1 = nn.Linear(input_dim, HIDDEN_DIM)
+      self.fc2 = nn.Linear(HIDDEN_DIM, num_classes)
+      self.drop = nn.Dropout(p=0.5)
+      self.relu = nn.ReLU()
       
   def forward(self, x, constant):
     out1 = GradReverse.grad_reverse(x.float(), constant)
-    # out2 = F.relu(self.fc(out1))
-    out2 = self.fc(out1)
+    out1 = self.relu(self.fc1(out1))
+    out2 = self.fc2(out1)
     return out2
 
-class CascadedModel(nn.Module):
-  def __init__(self, modelA, modelB):
-    super(CascadedModel, self).__init__()
-    self.modelA = modelA
-    self.modelB = modelB
+# class CascadedModel(nn.Module):
+#   def __init__(self, modelA, modelB):
+#     super(CascadedModel, self).__init__()
+#     self.modelA = modelA
+#     self.modelB = modelB
       
-  def forward(self, x):
-    out1 = self.modelA(x.float())
-    out2 = self.modelB(out1)
-    return out2
+#   def forward(self, x):
+#     out1 = self.modelA(x.float())
+#     out2 = self.modelB(out1)
+#     return out2
 
-
+KERNEL_SIZE = 3
 class DannModel(nn.Module):
   def __init__(self, device, class_N=2, domain_N=2, channel_n=16, input_dim=10):
     super(DannModel, self).__init__()
     self.feature_extractor = FeatureExtractor(input_dim=input_dim, channel_n=channel_n).to(device).float()
-    cnn_layer1_dim = (input_dim+2*2-1*(3-1)-1)+1
-    pool_layer1_dim = (cnn_layer1_dim-1*(2-1)-1)/2+1
+#     cnn_layer1_dim = (input_dim+2*2-1*(3-1)-1)+1
+#     pool_layer1_dim = (cnn_layer1_dim-1*(2-1)-1)/2+1
 
-    cnn_layer2_dim = (pool_layer1_dim+2*2-1*(3-1)-1)+1
-    pool_layer2_dim = (cnn_layer2_dim-1*(2-1)-1)/2+1
+#     cnn_layer2_dim = (pool_layer1_dim+2*2-1*(3-1)-1)+1
+#     pool_layer2_dim = (cnn_layer2_dim-1*(2-1)-1)/2+1
+	
+    cnn_layer1_dim = (input_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
+    pool_layer1_dim = math.floor((cnn_layer1_dim-1*(2-1)-1)/2+1)
+
+    cnn_layer2_dim = (pool_layer1_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
+    pool_layer2_dim = math.floor((cnn_layer2_dim-1*(2-1)-1)/2+1)
 
     feature_out_dim = int(pool_layer2_dim*channel_n*2)
     self.class_classfier = ClassClassifier(num_classes=class_N, input_dim=feature_out_dim).to(device).float()
@@ -211,28 +255,28 @@ class DannModel(nn.Module):
     return feature_out, class_output, domain_output
 
 
-class BaselineModel(nn.Module):
-  def __init__(self, device, class_N=2, channel_n=16, input_dim=10):
-    super(BaselineModel, self).__init__()
-    self.feature_extractor = FeatureExtractor(input_dim=input_dim, channel_n=channel_n).to(device).float()
-    cnn_layer1_dim = (input_dim+2*2-1*(3-1)-1)+1
-    pool_layer1_dim = (cnn_layer1_dim-1*(2-1)-1)/2+1
+# class BaselineModel(nn.Module):
+#   def __init__(self, device, class_N=2, channel_n=16, input_dim=10):
+#     super(BaselineModel, self).__init__()
+#     self.feature_extractor = FeatureExtractor(input_dim=input_dim, channel_n=channel_n).to(device).float()
+#     cnn_layer1_dim = (input_dim+2*2-1*(3-1)-1)+1
+#     pool_layer1_dim = (cnn_layer1_dim-1*(2-1)-1)/2+1
 
-    cnn_layer2_dim = (pool_layer1_dim+2*2-1*(3-1)-1)+1
-    pool_layer2_dim = (cnn_layer2_dim-1*(2-1)-1)/2+1
+#     cnn_layer2_dim = (pool_layer1_dim+2*2-1*(3-1)-1)+1
+#     pool_layer2_dim = (cnn_layer2_dim-1*(2-1)-1)/2+1
 
-    feature_out_dim = int(pool_layer2_dim*channel_n*2)
+#     feature_out_dim = int(pool_layer2_dim*channel_n*2)
 
-    self.class_classfier = ClassClassifier(num_classes=class_N, input_dim=feature_out_dim).to(device).float()
-    # self.domain_classifier = DomainClassifier(num_classes=domain_N, input_dim=feature_out_dim).to(device).float()
+#     self.class_classfier = ClassClassifier(num_classes=class_N, input_dim=feature_out_dim).to(device).float()
+#     # self.domain_classifier = DomainClassifier(num_classes=domain_N, input_dim=feature_out_dim).to(device).float()
       
-  def forward(self, x):
-    feature_out = self.feature_extractor(x)
-    # print('feature_out size', feature_out.size())
-    class_out = self.class_classfier(feature_out)
-    # domain_output = self.domain_classifier(feature_out, 1)
-    # return feature_out
-    return feature_out, class_out
+#   def forward(self, x):
+#     feature_out = self.feature_extractor(x)
+#     # print('feature_out size', feature_out.size())
+#     class_out = self.class_classfier(feature_out)
+#     # domain_output = self.domain_classifier(feature_out, 1)
+#     # return feature_out
+#     return feature_out, class_out
 
 
 
@@ -428,39 +472,100 @@ class DomainClassifier_lstm(nn.Module):
     return out2
 
 
-# # domain classifier neural network (fc layers)
-# class DomainClassifier_lstm(nn.Module):
-#   def __init__(self, num_classes=2, hiddenDim=16, input_dim=50, steps_n=5):
-#       super(DomainClassifier_lstm, self).__init__()
-#       self.lstm = nn.LSTM(         # if use nn.RNN(), it hardly learns
-#         input_size=input_dim,
-#         hidden_size=hiddenDim,         # rnn hidden unit
-#         num_layers=2,           # number of rnn layer
-#         batch_first=False,       # input & output will has not batch size as 1st dimension. e.g. (time_step, time_step, input_size)
-#         bidirectional=True,
-#       )
-#       self.fc1 = nn.Linear(steps_n*hiddenDim*2, 10)
-#       self.fc2 = nn.Linear(10, num_classes)
-#       self.relu = nn.ReLU(inplace=False)
-#       self.fc3 = nn.Linear(steps_n*hiddenDim*2, num_classes)
 
-#   def forward(self, x, constant):
-#     debug = False
+# """
+# SVM for Domain discrimination
+# """
+# class SVM(object):
+#     def __init__(self, batch_size, vocab_size, max_seq_len=50, hidden_units=128, learning_rate=0.006):
+#         self.vocab_size = vocab_size
+#         self.model = None
 
-#     x = GradReverse.grad_reverse(x.float(), constant)
 
-#     out1_seq, (h_n, h_c) = self.lstm(x)
-#     out1_seq = out1_seq.transpose(0,1)
-#     out1_seq = out1_seq.reshape(out1_seq.size()[0],-1)
+#     def vectorize(self, sequence):
+#         """ Convert sequence of word-indices into one-hot vector
+#         """
+#         out = [0] * self.vocab_size
+#         for x in sequence:
+#             if x == 0:
+#                 break
+#             try:
+#                 out[x] += 1
+#             except:
+#                 pass
+#         return out
 
-#     # out2 = self.relu(self.fc1(out1_seq))
-#     # out3 = self.fc2(out2)
-#     out3 = self.fc3(out1_seq)
 
-#     if debug:
-#       print('DomainClassifier_lstm')
-#       print('out1_seq size:', out1_seq.size())
-#       print('out2 size:', out2.size())
-#       print('out3 size:', out3.size())
-      
-#     return out3
+#     def prepare_examples(self, x, xl, y, yl):
+#         """ Convert examples into a sparse matrix of one-hot vectors
+#             each vector is the concatination of x (sequence from corpus 1) and 
+#             y (sequence from corpus 2)
+#         """
+#         return csr_matrix([self.vectorize(xi[:xli] + yi[:yli]) \
+#                                for xi, xli, yi, yli in zip(x, xl, y, yl)])
+
+
+#     def prepare_labels(self, d):
+#         """ Translate probability distributions to binary label
+#         """
+#         return [np.argmax(di) for di in d]
+
+
+#     def train_on_batch(self, domains, x, x_lens, y, y_lens, c=3000):
+#         """ Train svm on some data
+#         """
+#         self.model = svm.SVC(C=c, probability=True, verbose=2)
+#         examples = self.prepare_examples(x, x_lens, y, y_lens)
+#         labels = self.prepare_labels(domains)
+#         self.model.fit(examples, labels)
+
+
+#     def predict(self, x, x_lens, y, y_lens):
+#         """ Predict domains for some examples
+#         """
+#         examples = self.prepare_examples(x, x_lens, y, y_lens)
+#         y_hat = self.model.predict(examples)
+#         return y_hat
+
+
+#     def mse(self, labels, x, x_lens, y, y_lens):
+#         """ mean squared error (MSE)
+#         """
+#         examples = self.prepare_examples(x, x_lens, y, y_lens)
+#         y_hat = self.model.predict_proba(examples)
+#         mse = mean_squared_error(labels, y_hat)
+#         return mse
+
+
+#     def mae(self, labels, x, x_lens, y, y_lens):
+#         """ mean absolute error (MAE)
+#         """
+#         examples = self.prepare_examples(x, x_lens, y, y_lens)
+#         y_hat = self.model.predict_proba(examples)
+#         mae = mean_absolute_error(labels, y_hat)
+#         return mae
+
+
+#     def fit(self, dataset):
+#         """ Fit the model to a dataset and evaluate with MAE
+#         """
+#         dataset.set_batch_size(dataset.get_n('train') - 1)
+#         train_data = next(dataset.mixed_batch_iter())
+
+#         dataset.set_batch_size(dataset.get_n('val') - 1)
+#         val_data = next(dataset.mixed_batch_iter(data='val'))
+#         print 'INFO: training on ', dataset.get_n('train') - 1, ' examples'
+#         self.train_on_batch(*train_data)  
+#         mae = self.mae(*val_data)
+#         print 'INFO: mae: ', mae
+
+
+#     def test(self, dataset, mae=False):
+#         """ Test the dataset on a dataset
+#         """
+#         dataset.set_batch_size(dataset.get_n('test') - 1)
+#         test_data = next(dataset.mixed_batch_iter(data='test'))
+#         if not mae:
+#             return self.mse(*test_data)
+#         else:
+#             return self.mae(*test_data)

@@ -9,7 +9,7 @@
 
 # # Import packages and get authenticated
 
-# In[ ]:
+# In[1]:
 
 
 # from google.colab import drive
@@ -81,7 +81,7 @@ parser.add_argument('--input_folder', metavar='input_folder', help='input_folder
 parser.add_argument('--output_folder', metavar='output_folder', help='output_folder',
                     default='../')
 parser.add_argument('--training_params_file', metavar='training_params_file', help='training_params_file',
-                    default='training_params_list_v0.json')
+                    default='training_params_list.json')
 parser.add_argument('--extractor_type', metavar='extractor_type', help='extractor_type',
                     default='CNN')
 parser.add_argument('--num_epochs', type=int, metavar='num_epochs', help='number of epochs',
@@ -105,16 +105,16 @@ parser.add_argument('--show_diagnosis_plt', metavar='show_diagnosis_plt', help='
 
 # checklist 2: comment first line, uncomment second line seizures_FN
 # plt.style.use(['dark_background'])
-# args = parser.parse_args(['--input_folder', '../../data_mic/stage1_preprocessed_WithoutNormal_18hz_5fold', 
-#                           '--output_folder', '../../data_mic/stage2_modeloutput_WithoutNormal_18hz_5fold_test',
-#                           '--training_params_file', 'training_params_list_v1.json',
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage1/preprocessed_WithoutNormal_18hz_5fold', 
+#                           '--output_folder', '../../data_mic/stage2/test',
+#                           '--training_params_file', 'training_params_list_fixed.json',
 #                           '--extractor_type', 'CNN',
-#                           '--num_epochs', '10',
-#                           '--CV_n', '2',
-#                           '--rep_n', '2',
+#                           '--num_epochs', '5',
+#                           '--CV_n', '5',
+#                           '--rep_n', '5',
 #                           '--show_diagnosis_plt', 'True',
-#                           '--tasks_list', 'UPFall_rightpocket-UMAFall_leg UMAFall_leg-UPFall_rightpocket',])
-#                           '--tasks_list', 'UMAFall_waist-UMAFall_wrist UPFall_wrist-UMAFall_ankle',])
+# #                           '--tasks_list', 'UPFall_rightpocket-UMAFall_leg UMAFall_leg-UPFall_rightpocket',])
+#                           '--tasks_list', 'UMAFall_waist-UPFall_belt UPFall_wrist-UMAFall_wrist',])
                           
 args = parser.parse_args()
 
@@ -255,6 +255,7 @@ device = torch.device('cuda:{}'.format(int(cuda_i)) if torch.cuda.is_available()
 #     'dropout': 0.5,
 #     'hiddenDim_f': 3,
 #     'hiddenDim_y': 3,
+
 #     'hiddenDim_d': 3,
 #     'win_size': 18,
 #     'win_stride': 6,
@@ -375,25 +376,27 @@ for task_item in tasks_list:
 
 
     df_sample = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
-                                              'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params'], columns=[])
+                                              'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params', 'PAD_source', 'PAD_DANN'], columns=[])
     df_dict_agg_HP = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
 
 
     # 1. try all HP
+#     if training_params_file=='training_params_list_fixed.json':
+#         pass
+#     else:
     for i, training_params in enumerate(training_params_list):
         df_dict = performance_table(src_name, tgt_name, training_params, inputdir, task_outputdir)
         for df_name in df_dict_agg_HP.keys():
             print('show', df_name)
             df_dict_agg_HP[df_name][training_params['HP_name']] = df_dict[df_name].copy()
-#             display(df_dict_agg_HP[df_name])
-        
     # 2. agg all HP
-    
-    if training_params_file=='training_params_list_test.json':
-        pass
-    elif training_params_file=='training_params_list_v1.json':
-        pass
-    elif training_params_file=='training_params_list_v0.json':
+#     if training_params_file=='training_params_list_test.json':
+#         pass
+#     elif training_params_file=='training_params_list_fixed.json':
+#         pass
+#     elif training_params_file=='training_params_list_v1.json':
+#         pass
+    if training_params_file=='training_params_list_v0.json':
         for df_name in df_dict_agg_HP.keys():
             df_dict_agg_HP[df_name]['HP_i3_1'] = df_dict_agg_HP[df_name]['HP_i1']
             df_dict_agg_HP[df_name]['HP_i5_1'] = df_dict_agg_HP[df_name]['HP_i1']
@@ -405,6 +408,10 @@ for task_item in tasks_list:
         training_params_optimal['batch_size'] = 64
         training_params_optimal['channel_n'] = 4
         training_params_optimal['learning_rate'] = 0.01
+    if training_params_file=='training_params_list_fixed.json':
+        training_params_optimal['batch_size'] = training_params_list[0]['batch_size']
+        training_params_optimal['channel_n'] = training_params_list[0]['channel_n']
+        training_params_optimal['learning_rate'] = training_params_list[0]['learning_rate']
     elif training_params_file=='training_params_list_v1.json':
         channel_n_optimal = get_optimal_v1(df_dict_agg_HP['df_sensitivity'])
         training_params_optimal['channel_n'] = channel_n_optimal
@@ -414,23 +421,28 @@ for task_item in tasks_list:
         training_params_optimal['channel_n'] = channel_n_optimal
         training_params_optimal['learning_rate'] = learning_rate_optimal
 
-    
-    df_dict = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
+    if training_params_file=='training_params_list_fixed.json':
+        pass
+    else:
+        df_dict = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
 
     for df_name in df_dict_agg_HP.keys():
         df_dict_agg_HP[df_name][training_params_optimal['HP_name']] = df_dict[df_name].copy()
     
-    if training_params_file=='training_params_list_test.json':
+#     if training_params_file=='training_params_list_test.json':
+#         for df_name in df_dict_agg_HP.keys():
+#             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['test_i0','test_i1']]
+#     elif training_params_file=='training_params_list_fixed.json':
+#         for df_name in df_dict_agg_HP.keys():
+#             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['fixed']]
+    if training_params_file=='training_params_list_v1.json':
         for df_name in df_dict_agg_HP.keys():
-            df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['test_i0','test_i1']]
-    elif training_params_file=='training_params_list_v1.json':
             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['HP_i0','HP_i1','HP_i2','HP_i3','HP_i4','HP_optimal']]
     elif training_params_file=='training_params_list_v0.json':
         for df_name in df_dict_agg_HP.keys():
             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['HP_i0','HP_i1','HP_i2','HP_i3','HP_i3_1','HP_i4','HP_i5','HP_i5_1','HP_i6','HP_optimal']]
-
+    
     # 4. store and display HP df_performance_table_agg
-
     df_outputdir = task_outputdir+'HP_search/'
     if not os.path.exists(df_outputdir):
         os.makedirs(df_outputdir)
@@ -447,9 +459,8 @@ for task_item in tasks_list:
         display(df_dict_agg_HP[df_name])
         
     # 5. run rep experiments
-    
     df_sample = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
-                                        'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params'], columns=[])
+                                        'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params', 'PAD_source', 'PAD_DANN'], columns=[])
     df_dict_agg_rep = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
 
     for i in range(0,rep_n):
@@ -472,12 +483,39 @@ for task_item in tasks_list:
     for df_name in df_dict_agg_rep.keys():
         print('show', df_name)
         display(df_dict_agg_rep[df_name])
+        
 
 
 # In[ ]:
 
 
 
+
+
+# In[ ]:
+
+
+# def get_rep_stats2(df_performance_table_agg, rep_n):
+# 	df_acc = df_performance_table_agg.loc[ ['source', 'DANN', 'target', 'domain', 'PAD_source', 'PAD_DANN'] , ].copy()
+# 	df_params = df_performance_table_agg.loc[ ['channel_n', 'batch_size', 'learning_rate', 'time_elapsed', 'num_params'], ].copy()
+
+#     # accs
+# 	df_performance_table_all_mean = df_acc.applymap(get_mean)
+# 	df_performance_table_means = df_performance_table_all_mean.mean(axis=1)
+# 	df_performance_table_stds = df_performance_table_all_mean.std(axis=1)
+# 	df_performance_table_all_mean['mean'] = df_performance_table_means
+# 	df_performance_table_all_mean['std'] = df_performance_table_stds
+# 	df_performance_table_all_mean['rep'] = df_performance_table_all_mean[['mean', 'std']].apply(lambda x : '{:.3f}±{:.3f}'.format(x[0],x[1]), axis=1)
+
+#     # params
+# 	df_params_means = df_params.mean(axis=1)
+
+# 	df_performance_table_agg['rep_avg'] = ''
+# 	df_performance_table_agg.loc[ ['source','DANN','target','domain','PAD_source','PAD_DANN'] , ['rep_avg']] = df_performance_table_all_mean.loc[:, 'rep']
+# 	df_performance_table_agg.loc[ ['channel_n','batch_size','learning_rate','time_elapsed','num_params'], ['rep_avg']] = df_params_means
+# 	return df_performance_table_agg
+
+# get_rep_stats2(df_dict_agg_rep[df_name], rep_n)
 
 
 # In[ ]:
