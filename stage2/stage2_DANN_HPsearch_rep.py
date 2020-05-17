@@ -44,6 +44,7 @@ import datetime
 from datetime import datetime
 import json
 import argparse
+import copy
 
 # Plotting
 # checklist 1: comment inline, uncomment Agg
@@ -63,16 +64,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# In[ ]:
+# In[3]:
 
 
+# from torch.utils.data import Dataset, DataLoader
 
+# batch_size = 20
+# class_sample_count = [10, 1, 20, 3, 4] # dataset has 10 class-1 samples, 1 class-2 samples, etc.
+# weights = 1 / torch.Tensor(class_sample_count)
+# sampler = torch.utils.data.sampler.WeightedRandomSampler(weights, batch_size)
+# trainloader = DataLoader(train_dataset, batch_size = batch_size, shuffle=True, sampler = sampler)
 
 
 # # Get user inputs
 # In ipython notebook, these are hardcoded. In production python code, use parsers to provide these inputs
 
-# In[3]:
+# In[4]:
 
 
 parser = argparse.ArgumentParser(description='FD_DAT')
@@ -97,7 +104,8 @@ parser.add_argument('--tasks_list', metavar='tasks_list', help='a list of all ta
 parser.add_argument('--show_diagnosis_plt', metavar='show_diagnosis_plt', help='show diagnosis plt or not',
                     default='False')
 
-
+parser.add_argument('--use_WeightedRandomSampler', metavar='use_WeightedRandomSampler', help='use WeightedRandomSampler to mitigate imbalanced dataset',
+                    default='False')
 
 
 # split_mode = 'LOO'
@@ -105,33 +113,35 @@ parser.add_argument('--show_diagnosis_plt', metavar='show_diagnosis_plt', help='
 
 # checklist 2: comment first line, uncomment second line seizures_FN
 # plt.style.use(['dark_background'])
-# args = parser.parse_args(['--input_folder', '../../data_mic/stage1/preprocessed_WithoutNormal_18hz_5fold', 
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage1/preprocessed_18hz_5fold', 
 #                           '--output_folder', '../../data_mic/stage2/test',
+# #                           '--training_params_file', 'training_params_list_v1.json',
 #                           '--training_params_file', 'training_params_list_fixed.json',
 #                           '--extractor_type', 'CNN',
-#                           '--num_epochs', '5',
-#                           '--CV_n', '5',
-#                           '--rep_n', '5',
+#                           '--num_epochs', '15',
+#                           '--CV_n', '2',
+#                           '--rep_n', '2',
 #                           '--show_diagnosis_plt', 'True',
-# #                           '--tasks_list', 'UPFall_rightpocket-UMAFall_leg UMAFall_leg-UPFall_rightpocket',])
-#                           '--tasks_list', 'UMAFall_waist-UPFall_belt UPFall_wrist-UMAFall_wrist',])
+#                           '--use_WeightedRandomSampler', 'True',
+#                           '--tasks_list', 'UMAFall_leg-UPFall_rightpocket UPFall_rightpocket-UMAFall_leg',])
+#                           '--tasks_list', 'FARSEEING_thigh-FARSEEING_lowback FARSEEING_lowback-FARSEEING_thigh',])
                           
 args = parser.parse_args()
 
 
-# In[4]:
+# In[5]:
 
 
 print(args)
 
 
-# In[ ]:
+# In[6]:
 
 
+args.show_diagnosis_plt
 
 
-
-# In[5]:
+# In[7]:
 
 
 home_dir = home+'/project_FDDAT/'
@@ -142,8 +152,16 @@ extractor_type = args.extractor_type
 num_epochs = args.num_epochs
 CV_n = args.CV_n
 rep_n = args.rep_n
-show_diagnosis_plt = bool(args.show_diagnosis_plt)
+if args.show_diagnosis_plt == 'True':
+     show_diagnosis_plt = True
+elif args.show_diagnosis_plt == 'False':
+     show_diagnosis_plt = False
 
+if args.use_WeightedRandomSampler == 'True':
+     use_WeightedRandomSampler = True
+elif args.use_WeightedRandomSampler == 'False':
+     use_WeightedRandomSampler = False
+        
 with open('../../repo/falldetect/params.json') as json_file:
     falldetect_params = json.load(json_file)
 
@@ -164,10 +182,10 @@ if not os.path.exists(outputdir):
 device = torch.device('cuda:{}'.format(int(cuda_i)) if torch.cuda.is_available() else 'cpu')
 
 
-# In[ ]:
+# In[8]:
 
 
-
+inputdir
 
 
 # In[ ]:
@@ -178,7 +196,7 @@ device = torch.device('cuda:{}'.format(int(cuda_i)) if torch.cuda.is_available()
 
 # # new arch HP search
 
-# In[6]:
+# In[9]:
 
 
 # training_params_list = [
@@ -333,7 +351,7 @@ device = torch.device('cuda:{}'.format(int(cuda_i)) if torch.cuda.is_available()
 
 
 
-# In[7]:
+# In[10]:
 
 
 with open(training_params_file) as json_file:
@@ -341,10 +359,19 @@ with open(training_params_file) as json_file:
     
 for training_params in training_params_list:
     training_params['CV_n'] = CV_n
+    training_params['rep_n'] = rep_n
+#     training_params['CV_list'] = CV_list
     training_params['num_epochs'] = num_epochs
     training_params['extractor_type'] = extractor_type
     training_params['device'] = device
     training_params['show_diagnosis_plt'] = show_diagnosis_plt
+    training_params['use_WeightedRandomSampler'] = use_WeightedRandomSampler
+
+
+# In[11]:
+
+
+training_params_list
 
 
 # In[ ]:
@@ -353,17 +380,44 @@ for training_params in training_params_list:
 
 
 
+# In[12]:
+
+
+def run_rep(df_metric_keys, tgt_name, training_params, inputdir, task_outputdir, rep_n=5):
+    # 5. run rep experiments
+    df_sample = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
+                                        'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params', 'PAD_source', 'PAD_DANN'], columns=[])
+    df_dict_agg_rep = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
+
+    for i_rep in range(rep_n):
+        df_dict = performance_table(src_name, tgt_name, training_params, i_rep, inputdir, task_outputdir+training_params['HP_name']+'/')
+
+        for df_name in df_dict_agg_rep.keys():
+            df_dict_agg_rep[df_name]['rep{}'.format(i_rep)] = df_dict[df_name].copy()
+
+    df_outputdir = task_outputdir+training_params['HP_name']+'/'
+#     task_outputdir+'repetitive_results/'
+    if not os.path.exists(df_outputdir):
+        os.makedirs(df_outputdir)
+    print('df_dict_agg_rep saved at', df_outputdir)
+
+    for df_name in df_dict_agg_rep.keys():
+        df_dict_agg_rep[df_name] = get_rep_stats(df_dict_agg_rep[df_name], rep_n)
+        df_dict_agg_rep[df_name].to_csv(df_outputdir+'df_performance_table_agg_rep_{}.csv'.format(df_name.split('_')[1]), encoding='utf-8')
+
+    return df_dict_agg_rep
+
+
 # In[ ]:
 
 
 
 
 
-# In[8]:
+# In[13]:
 
 
 # fine-tuning
-
 df_metric_keys = ['df_acc', 'df_sensitivity', 'df_precision', 'df_F1']
 
 for task_item in tasks_list:
@@ -374,116 +428,19 @@ for task_item in tasks_list:
         os.makedirs(task_outputdir)
     print('outputdir for stage2 {} output: {}'.format(task_item, task_outputdir))
 
-
     df_sample = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
                                               'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params', 'PAD_source', 'PAD_DANN'], columns=[])
     df_dict_agg_HP = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
 
-
     # 1. try all HP
-#     if training_params_file=='training_params_list_fixed.json':
-#         pass
-#     else:
     for i, training_params in enumerate(training_params_list):
-        df_dict = performance_table(src_name, tgt_name, training_params, inputdir, task_outputdir)
-        for df_name in df_dict_agg_HP.keys():
-            print('show', df_name)
-            df_dict_agg_HP[df_name][training_params['HP_name']] = df_dict[df_name].copy()
-    # 2. agg all HP
-#     if training_params_file=='training_params_list_test.json':
-#         pass
-#     elif training_params_file=='training_params_list_fixed.json':
-#         pass
-#     elif training_params_file=='training_params_list_v1.json':
-#         pass
-    if training_params_file=='training_params_list_v0.json':
-        for df_name in df_dict_agg_HP.keys():
-            df_dict_agg_HP[df_name]['HP_i3_1'] = df_dict_agg_HP[df_name]['HP_i1']
-            df_dict_agg_HP[df_name]['HP_i5_1'] = df_dict_agg_HP[df_name]['HP_i1']
-    
-    # 3. run optimal param for a task (based on dann sens.)
-    training_params_optimal = training_params.copy()
-    training_params_optimal['HP_name'] = 'HP_optimal'
-    if training_params_file=='training_params_list_test.json':
-        training_params_optimal['batch_size'] = 64
-        training_params_optimal['channel_n'] = 4
-        training_params_optimal['learning_rate'] = 0.01
-    if training_params_file=='training_params_list_fixed.json':
-        training_params_optimal['batch_size'] = training_params_list[0]['batch_size']
-        training_params_optimal['channel_n'] = training_params_list[0]['channel_n']
-        training_params_optimal['learning_rate'] = training_params_list[0]['learning_rate']
-    elif training_params_file=='training_params_list_v1.json':
-        channel_n_optimal = get_optimal_v1(df_dict_agg_HP['df_sensitivity'])
-        training_params_optimal['channel_n'] = channel_n_optimal
-    elif training_params_file=='training_params_list_v0.json':
-        batch_size_optimal, channel_n_optimal, learning_rate_optimal = get_optimal_v0(df_dict_agg_HP['df_sensitivity'])
-        training_params_optimal['batch_size'] = batch_size_optimal
-        training_params_optimal['channel_n'] = channel_n_optimal
-        training_params_optimal['learning_rate'] = learning_rate_optimal
+        df_dict_agg_rep = run_rep(df_metric_keys, tgt_name, training_params, inputdir, task_outputdir, rep_n)
+        training_params['df_dict_agg_rep'] = copy.deepcopy(df_dict_agg_rep)
 
-    if training_params_file=='training_params_list_fixed.json':
-        pass
-    else:
-        df_dict = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
-
-    for df_name in df_dict_agg_HP.keys():
-        df_dict_agg_HP[df_name][training_params_optimal['HP_name']] = df_dict[df_name].copy()
-    
-#     if training_params_file=='training_params_list_test.json':
-#         for df_name in df_dict_agg_HP.keys():
-#             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['test_i0','test_i1']]
-#     elif training_params_file=='training_params_list_fixed.json':
-#         for df_name in df_dict_agg_HP.keys():
-#             df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['fixed']]
-    if training_params_file=='training_params_list_v1.json':
-        for df_name in df_dict_agg_HP.keys():
-            df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['HP_i0','HP_i1','HP_i2','HP_i3','HP_i4','HP_optimal']]
-    elif training_params_file=='training_params_list_v0.json':
-        for df_name in df_dict_agg_HP.keys():
-            df_dict_agg_HP[df_name] = df_dict_agg_HP[df_name][['HP_i0','HP_i1','HP_i2','HP_i3','HP_i3_1','HP_i4','HP_i5','HP_i5_1','HP_i6','HP_optimal']]
-    
-    # 4. store and display HP df_performance_table_agg
-    df_outputdir = task_outputdir+'HP_search/'
-    if not os.path.exists(df_outputdir):
-        os.makedirs(df_outputdir)
-    print('HP df_performance_table_agg saved at', df_outputdir)
-
-    for df_name in df_dict_agg_HP.keys():
-        df_dict_agg_HP[df_name].to_csv(df_outputdir+'df_performance_table_agg_HP_{}.csv'.format(df_name.split('_')[1]), encoding='utf-8')
-
-    # Serialize data into file:
-    json.dump({key:val for key, val in training_params_optimal.items() if key != 'device'}, open(df_outputdir+'training_params_optimal.json', 'w'))
-
-    for df_name in df_dict_agg_HP.keys():
-        print('show', df_name)
-        display(df_dict_agg_HP[df_name])
-        
-    # 5. run rep experiments
-    df_sample = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
-                                        'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params', 'PAD_source', 'PAD_DANN'], columns=[])
-    df_dict_agg_rep = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
-
-    for i in range(0,rep_n):
-        df_dict = performance_table(src_name, tgt_name, training_params_optimal, inputdir, task_outputdir)
         for df_name in df_dict_agg_rep.keys():
-            df_dict_agg_rep[df_name]['rep_i{}'.format(i)] = df_dict[df_name].copy()
-
-    df_outputdir = task_outputdir+'repetitive_results/'
-    if not os.path.exists(df_outputdir):
-        os.makedirs(df_outputdir)
-    print('df_performance_table_agg_rep saved at', df_outputdir)
-
-    for df_name in df_dict_agg_rep.keys():
-        df_dict_agg_rep[df_name] = get_rep_stats(df_dict_agg_rep[df_name], rep_n)
-        df_dict_agg_rep[df_name].to_csv(df_outputdir+'df_performance_table_agg_rep_{}.csv'.format(df_name.split('_')[1]), encoding='utf-8')
-
-    # Serialize data into file:
-    json.dump({key:val for key, val in training_params_optimal.items() if key != 'device'}, open(df_outputdir+'training_params_optimal.json', 'w'))
-
-    for df_name in df_dict_agg_rep.keys():
-        print('show', df_name)
-        display(df_dict_agg_rep[df_name])
-        
+            print('show', df_name)
+            display(df_dict_agg_rep[df_name])
+            
 
 
 # In[ ]:
@@ -492,7 +449,7 @@ for task_item in tasks_list:
 
 
 
-# In[ ]:
+# In[14]:
 
 
 # def get_rep_stats2(df_performance_table_agg, rep_n):
@@ -518,10 +475,14 @@ for task_item in tasks_list:
 # get_rep_stats2(df_dict_agg_rep[df_name], rep_n)
 
 
-# In[ ]:
+# In[15]:
 
 
-
+# precision=np.asarray(range(100))/100
+# sensitivity=np.asarray(range(100))/100
+# F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
+# F1
+# # plt.plot(np.asarray(range(100))/100, F1)
 
 
 # In[ ]:

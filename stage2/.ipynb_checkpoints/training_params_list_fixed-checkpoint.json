@@ -1,8 +1,9 @@
 [
   {
-    "HP_name": "fixed",
+    "HP_name": "HP_fixed",
     "classes_n": 2,
-    "CV_n": 2,
+    "CV_n": 5,
+    "rep_n": 5,
     "num_epochs": 2,
     "channel_n": 4,
     "batch_size": 4,

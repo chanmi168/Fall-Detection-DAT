@@ -10,7 +10,7 @@
 # drive.mount('drive')
 
 
-# In[3]:
+# In[2]:
 
 
 import numpy as np
@@ -55,7 +55,7 @@ home = expanduser("~")
 # # Get user inputs
 # In ipython notebook, these are hardcoded. In production python code, use parsers to provide these inputs
 
-# In[84]:
+# In[3]:
 
 
 parser = argparse.ArgumentParser(description='FD_DAT')
@@ -69,8 +69,10 @@ parser.add_argument('--output_dir', metavar='output_dir', help='path to output_d
                     default='../')
 parser.add_argument('--split_mode', metavar='split_mode', help='split_mode',
                     default='5fold')
-parser.add_argument('--i_seed', type=int, metavar='i_seed', help='seed number',
+parser.add_argument('--i_seed', metavar='i_seed', help='seed number',
                     default='0')
+parser.add_argument('--rep_n', metavar='rep_n', help='number of repetition',
+                    default='1')
 parser.add_argument('--standardization', metavar='standardization', help='method of standardization',
                     default='None')
 parser.add_argument('--excluded_idx', metavar='excluded_idx', 
@@ -101,11 +103,13 @@ parser.add_argument('--excluded_idx', metavar='excluded_idx',
 # args = parser.parse_args(['--input_dir', '../../Data/{}/ImpactWindow_Resample_WithoutNormal/18hz/{}/',
 #                           '--output_dir', '../../data_mic/stage1_preprocessed_WithoutNormal_18hz_{}/{}/{}/', 
 # args = parser.parse_args(['--input_dir', '../../Data/{}/ImpactWindow_Resample/18hz/{}/',
-#                           '--output_dir', '../../data_mic/stage1_preprocessed_18hz_{}/{}/{}/',
+#                           '--output_dir', '../../data_mic/stage1/preprocessed_18hz_{}/{}/{}/',
 #                           '--dataset_name', 'UMAFall', 
 #                           '--sensor_loc', 'leg',
 #                           '--split_mode', '5fold',
+# #                           '--i_seed', '1 2 3 4 5 6 7 8 9 10',
 #                           '--i_seed', '1',
+#                           '--rep_n', '10',
 #                           '--standardization', 'None'])
 
                           
@@ -113,7 +117,7 @@ parser.add_argument('--excluded_idx', metavar='excluded_idx',
 args = parser.parse_args()
 
 
-# In[101]:
+# In[4]:
 
 
 input_dir = args.input_dir
@@ -122,7 +126,9 @@ dataset_name = args.dataset_name
 sensor_loc = args.sensor_loc
 home_dir = home+'/project_FDDAT/'
 split_mode = args.split_mode
-i_seed = args.i_seed
+i_seed = int(args.i_seed)
+rep_n = int(args.rep_n)
+# i_seed_list = [int(i_seed) for i_seed in args.i_seed.split(' ')]
 standardization = args.standardization
 if args.excluded_idx == 'none':
     excluded_idx = []
@@ -141,7 +147,7 @@ print(args)
 
 # # load data_management (all) first
 
-# In[86]:
+# In[5]:
 
 
 # resampled, 18.4hz
@@ -159,7 +165,7 @@ df = pd.read_csv(DataNameList_inputdir)
 df.head(5)
 
 
-# In[87]:
+# In[6]:
 
 
 act_names = df['Activity_ID'].unique()
@@ -173,7 +179,7 @@ print(act_embeddings)
 
 
 
-# In[88]:
+# In[7]:
 
 
 if dataset_name=='UMAFall' or dataset_name=='UPFall' or dataset_name=='FARSEEING':
@@ -210,7 +216,7 @@ for filename in tqdm(df[column_x_DataName]):
     i += 1
 
 
-# In[89]:
+# In[8]:
 
 
 fall_n = (actlabels_all==1).sum()
@@ -231,7 +237,7 @@ print('fall_n, adl_n:', fall_n, adl_n)
 
 
 
-# In[90]:
+# In[9]:
 
 
 if standardization == '0 mean unit var':
@@ -240,7 +246,7 @@ elif standardization == 'None':
     pass
 
 
-# In[91]:
+# In[10]:
 
 
 samples_n = data_all.shape[2]
@@ -252,7 +258,7 @@ print('number of activities', labels_n)
 print('number of subject', subjects_n)
 
 
-# In[92]:
+# In[11]:
 
 
 print('3 axes mean', np.mean(data_all,axis=(0,2)))
@@ -261,7 +267,7 @@ print('3 axes max', np.max(data_all,axis=(0,2)))
 print('3 axes min', np.min(data_all,axis=(0,2)))
 
 
-# In[93]:
+# In[12]:
 
 
 figure=plt.figure(figsize=(5, 5), dpi= 80, facecolor='w', edgecolor='k')
@@ -287,7 +293,7 @@ figure.savefig(outputdir + 'raw_distribution.png')
 
 # # plot FT distribution
 
-# In[94]:
+# In[13]:
 
 
 
@@ -309,7 +315,7 @@ for i_win in range(data_all_FT.shape[2]):
 
 
 
-# In[95]:
+# In[14]:
 
 
 # get indices for each class
@@ -326,7 +332,7 @@ data_FT_Fall = data_all_FT[:,:,indices_Fall]
 
 
 
-# In[96]:
+# In[15]:
 
 
 T = 1/sampling_freq
@@ -363,7 +369,7 @@ def plot_FT_distribution(data_FT_ADL, data_FT_Fall, visual_resultsdir):
     figure.savefig(visual_resultsdir + 'FT_distribution.png')
 
 
-# In[97]:
+# In[16]:
 
 
 plot_FT_distribution(data_FT_Fall, data_FT_ADL, outputdir)
@@ -381,19 +387,19 @@ plot_FT_distribution(data_FT_Fall, data_FT_ADL, outputdir)
 
 
 
-# In[98]:
+# In[17]:
 
 
 plt.cla()
 
 
-# In[108]:
+# In[18]:
 
 
+# i_seed
 
 
-
-# In[110]:
+# In[19]:
 
 
 rand_idx = np.arange(data_all.shape[2])
@@ -427,7 +433,7 @@ for idx in range(20):
 
 
 
-# In[100]:
+# In[20]:
 
 
 unique_label_id, labels_counts = np.unique(actlabels_all, return_counts=True)
@@ -447,7 +453,7 @@ plt.show()
 plt.cla()
 
 
-# In[18]:
+# In[21]:
 
 
 unique_sub_id, id_counts = np.unique(sub_all, return_counts=True)
@@ -480,7 +486,7 @@ plt.cla()
 # # split data into train and val (1:1)
 # split by sample_id
 
-# In[19]:
+# In[22]:
 
 
 i_sub_unique_all = np.unique(sub_all)
@@ -517,22 +523,59 @@ print('will split data into {} folds'.format(CV_n))
 
 
 
-# In[20]:
+# In[ ]:
+
+
+
+
+
+# In[23]:
 
 
 from sklearn.model_selection import KFold
 kfold = CV_n
 kf = KFold(n_splits=kfold, shuffle=False)
 
-i_sub_unique = np.array(list(set(i_sub_unique_all) - set(i_sub_excluded)))
-print('all i_sub_unique', i_sub_unique)
-np.random.seed(i_seed)
-np.random.shuffle(i_sub_unique)
-kf.get_n_splits(i_sub_unique)
-print(kf)  
+for i_rep in range(rep_n):
+    i_sub_unique = np.array(list(set(i_sub_unique_all) - set(i_sub_excluded)))
+    print('all i_sub_unique', i_sub_unique)
+    np.random.seed(i_seed+i_rep)
+    np.random.shuffle(i_sub_unique)
+    kf.get_n_splits(i_sub_unique)
+    print(kf)  
 
-for train_index, val_index in kf.split(i_sub_unique):
-    print("TRAIN:", i_sub_unique[train_index], "VAL:", i_sub_unique[val_index])
+    for i_CV, (train_idx, val_idx) in enumerate(kf.split(i_sub_unique)):
+        print('----------------Splitting for rep {}, CV {}----------------'.format(i_rep, i_CV))
+        print("Sub ID | TRAIN:", i_sub_unique[train_idx], "VAL:", i_sub_unique[val_idx])
+        print('index CV', CV_n*i_rep+i_CV)
+
+        train_val_splitter(data_all, actlabels_all, sub_all, DataNameList_idx_all,
+                       i_sub_unique[train_idx], i_sub_unique[val_idx], outputdir+'rep{}/CV{}'.format(i_rep,i_CV))
+
+
+
+# for i_rep, i_seed in enumerate(i_seed_list):
+#     i_sub_unique = np.array(list(set(i_sub_unique_all) - set(i_sub_excluded)))
+#     print('all i_sub_unique', i_sub_unique)
+#     np.random.seed(i_seed)
+#     np.random.shuffle(i_sub_unique)
+#     kf.get_n_splits(i_sub_unique)
+#     print(kf)  
+
+#     i_CV = 0
+#     for train_idx, val_idx in kf.split(i_sub_unique):
+#         print('----------------Splitting for rep {}, CV {}----------------'.format(i_rep, i_CV))
+# #         print("Sub ID | TRAIN:", i_sub_unique[train_index], "VAL:", i_sub_unique[val_index])
+
+#         print("Sub ID | TRAIN:", i_sub_unique[train_idx], "VAL:", i_sub_unique[val_idx])
+
+#         if len(i_seed_list) > 1:
+#             train_val_splitter(data_all, actlabels_all, sub_all, DataNameList_idx_all,
+#                            i_sub_unique[train_idx], i_sub_unique[val_idx], outputdir+'CV{}_{}'.format(i_CV, i_rep))
+#         else:
+#             train_val_splitter(data_all, actlabels_all, sub_all, DataNameList_idx_all,
+#                            i_sub_unique[train_idx], i_sub_unique[val_idx], outputdir+'CV{}'.format(i_CV))
+#         i_CV = i_CV + 1
 
 
 # In[ ]:
@@ -567,18 +610,18 @@ for train_index, val_index in kf.split(i_sub_unique):
 
 
 
-# In[21]:
+# In[24]:
 
 
-i_CV = 0
+# i_CV = 0
 
-for train_idx, val_idx in kf.split(i_sub_unique):
-    print("Sub ID | TRAIN:", i_sub_unique[train_idx], "VAL:", i_sub_unique[val_idx])
+# for train_idx, val_idx in kf.split(i_sub_unique):
+#     print("Sub ID | TRAIN:", i_sub_unique[train_idx], "VAL:", i_sub_unique[val_idx])
 
-    train_val_splitter(data_all, actlabels_all, sub_all, DataNameList_idx_all,
-                       i_sub_unique[train_idx], i_sub_unique[val_idx], outputdir+'CV'+str(i_CV))
+#     train_val_splitter(data_all, actlabels_all, sub_all, DataNameList_idx_all,
+#                        i_sub_unique[train_idx], i_sub_unique[val_idx], outputdir+'CV'+str(i_CV))
 
-    i_CV = i_CV + 1
+#     i_CV = i_CV + 1
 
 
 # In[ ]:

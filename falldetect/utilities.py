@@ -78,12 +78,12 @@ def combine_data(input_dim, dataset_name, sensor_locs, i_CV, inputdir, outputdir
 def data_saver(data, name, outputdir):
   """ usage: data_saver(df_merged_interp_alldicts, 'data', outputdir)"""
   outputdir_data = os.path.join(outputdir, name+'.npz')
-  print('outputdir for {}:'.format(name), outputdir_data)
+#   print('outputdir for {}:'.format(name), outputdir_data)
   np.savez(outputdir_data, data=data, allow_pickle=True)
   loaded_data = np.load(outputdir_data, allow_pickle=True)['data']
 #     loaded_data = np.load(outputdir_data, allow_pickle=True)['data']
-  print('Are {} save and loadded correctly? '.format(name), np.array_equal(loaded_data, data))
-  print('')
+#   print('Are {} save and loadded correctly? '.format(name), np.array_equal(loaded_data, data))
+#   print('')
     
 def data_loader(name, inputdir):
   """ usage: data = data_loader('data', outputdir)"""
@@ -181,11 +181,12 @@ def train_val_splitter(features_all, labels_all, sub_all, DataNameList_idx_all,
   data_saver(DataNameList_idx_val, 'DataNameList_idx', outputdir_val)
 
   act_all_set = set(labels_train).union(set(labels_val))
-  print('********* Warning *********')
   print('All activity ID:', act_all_set)
-  print("Missing activity in labels_train:", (act_all_set.difference(set(labels_train)))) 
-  print("Missing activity in labels_val:", (act_all_set.difference(set(labels_val)))) 
-  print('***************************')
+  if len(set(act_all_set.difference(set(labels_train))))!=0 or len(set(act_all_set.difference(set(labels_val))))!=0:
+    print('********* Warning *********')
+    print("Missing activity in labels_train:", (act_all_set.difference(set(labels_train)))) 
+    print("Missing activity in labels_val:", (act_all_set.difference(set(labels_val)))) 
+    print('***************************')
 
   
   return data_train, data_val, \

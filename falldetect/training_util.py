@@ -42,7 +42,12 @@ def train_epoch(train_loader, device, model, criterion, optimizer, epoch):
   TN = 0
   FN = 0
 
+#   index_list = []
   for i, (data, labels) in enumerate(train_loader):
+#     index_list.append(index)
+#     print('in train_loader: label0, label1', i, (labels.numpy()==0).sum(), (labels.numpy()==1).sum())
+
+#   for i, (data, labels) in enumerate(train_loader):
 
     data = data.to(device)
     labels = labels.to(device).long()
@@ -75,6 +80,15 @@ def train_epoch(train_loader, device, model, criterion, optimizer, epoch):
   specificity = TN/(TN+FP)
   precision = TP/(TP+FP)
   F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
+  
+#   DATA_train_loader = train_loader.dataset.labels.numpy()
+#   print('sampler: label0, label1', i, FP+TN, TP+FN)
+#   print('in train_loader: label0, label1', i, (DATA_train_loader==0).sum(), (DATA_train_loader==1).sum())
+
+#   unique, counts = np.unique(np.concatenate(index_list), return_counts=True)
+#   print(dict(zip(unique, counts)))
+#   print(counts)
+
 
   if debug:
     print('show train_epoch results')
@@ -246,6 +260,10 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
     tgt_TN += ((tgt_class_pred==0) & (tgt_labels_np==0)).sum()
     tgt_FN += ((tgt_class_pred==0) & (tgt_labels_np==1)).sum()
 
+#   DATA_train_loader = src_loader.dataset.labels.numpy()
+#   print('SRC sampler: label0, label1', i, src_FP+src_TN, src_TP+src_FN)
+#   print('in SRC train_loader: label0, label1', i, (DATA_train_loader==0).sum(), (DATA_train_loader==1).sum())
+#   sys.exit()
 
   src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
   src_class_loss = total_src_class_loss/src_size
@@ -418,7 +436,7 @@ def val_epoch_dann(src_loader, tgt_loader, device,
 
 #   return val_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc
 
-def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir): 
+def BaselineModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir): 
   show_train_log = False
 #   show_diagnosis_plt = False
 
@@ -449,17 +467,17 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
   tgt_dataset_name = tgt_name.split('_')[0]
   tgt_sensor_loc = tgt_name.split('_')[1]
 
-  src_inputdir = inputdir + '{}/{}/'.format(src_dataset_name, src_sensor_loc)
-  tgt_inputdir = inputdir + '{}/{}/'.format(tgt_dataset_name, tgt_sensor_loc)
+  src_inputdir = inputdir + '{}/{}/rep{}/'.format(src_dataset_name, src_sensor_loc, i_rep)
+  tgt_inputdir = inputdir + '{}/{}/rep{}/'.format(tgt_dataset_name, tgt_sensor_loc, i_rep)
 
-  get_src_loader = get_data_loader
-  get_tgt_loader = get_data_loader
+#   get_src_loader = get_data_loader
+#   get_tgt_loader = get_data_loader
 
   for i_CV in range(CV_n):
     print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
     # 1. prepare dataset
-    src_train_loader, src_val_loader = get_src_loader(src_inputdir, i_CV, batch_size, learning_rate)
-    tgt_train_loader, tgt_val_loader = get_tgt_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
+    src_train_loader, src_val_loader = get_data_loader(src_inputdir, i_CV, batch_size, learning_rate, training_params)
+    tgt_train_loader, tgt_val_loader = get_data_loader(tgt_inputdir, i_CV, batch_size, learning_rate, training_params)
 
     # the model expect the same input dimension for src and tgt data
     src_train_size = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
@@ -566,10 +584,10 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
   export_perofmance(df_performance, CV_n, outputdir)
 
 #   print('src val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_loss'], df_performance.loc['std']['val_loss']))
-  print('src val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_acc'], df_performance.loc['std']['val_src_acc']))
+#   print('src val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_acc'], df_performance.loc['std']['val_src_acc']))
   
-#   print('tgt val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_loss'], df_performance.loc['std']['tgt_val_loss']))
-  print('tgt val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_acc'], df_performance.loc['std']['val_tgt_acc']))
+# #   print('tgt val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_loss'], df_performance.loc['std']['tgt_val_loss']))
+#   print('tgt val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_acc'], df_performance.loc['std']['val_tgt_acc']))
 
   # print('=========================================================')
 
@@ -582,8 +600,11 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
   samples_n = src_train_size + src_val_size
 
   # TODO: don't need to make param_dict
+  num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
   param_dict = {
+      'num_params': num_params,
+      'i_rep': i_rep,
       'CV_n': CV_n,
       'samples_n': samples_n,
       'classes_n': classes_n,
@@ -604,12 +625,11 @@ def BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputd
   with open(outputdir+'notebook_param.json', 'w') as fp:
     json.dump(param_dict, fp)
 
-  num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
   return df_performance, num_params
 
-def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir): 
+def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir): 
 #   show_diagnosis_plt = False
 
   if not os.path.exists(outputdir):
@@ -640,19 +660,19 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
   tgt_dataset_name = tgt_name.split('_')[0]
   tgt_sensor_loc = tgt_name.split('_')[1]
 
-  src_inputdir = inputdir + '{}/{}/'.format(src_dataset_name, src_sensor_loc)
-  tgt_inputdir = inputdir + '{}/{}/'.format(tgt_dataset_name, tgt_sensor_loc)
+  src_inputdir = inputdir + '{}/{}/rep{}/'.format(src_dataset_name, src_sensor_loc, i_rep)
+  tgt_inputdir = inputdir + '{}/{}/rep{}/'.format(tgt_dataset_name, tgt_sensor_loc, i_rep)
 
 
-  get_src_loader = get_data_loader
-  get_tgt_loader = get_data_loader
+#   get_src_loader = get_data_loader
+#   get_tgt_loader = get_data_loader
 	
 
   for i_CV in range(CV_n):
     print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
     # 1. prepare dataset
-    src_train_loader, src_val_loader = get_src_loader(src_inputdir, i_CV, batch_size, learning_rate)
-    tgt_train_loader, tgt_val_loader = get_tgt_loader(tgt_inputdir, i_CV, batch_size, learning_rate)
+    src_train_loader, src_val_loader = get_data_loader(src_inputdir, i_CV, batch_size, learning_rate, training_params)
+    tgt_train_loader, tgt_val_loader = get_data_loader(tgt_inputdir, i_CV, batch_size, learning_rate, training_params)
 
     # the model expect the same input dimension for src and tgt data
     src_train_size = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
@@ -762,8 +782,11 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
   now = datetime.now()
   dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
   samples_n = src_train_size + src_val_size
+  num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
   param_dict = {
+      'num_params': num_params,
+      'i_rep': i_rep,
       'CV_n': CV_n,
       'samples_n': samples_n,
       'classes_n': classes_n,
@@ -786,13 +809,12 @@ def DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir):
   with open(outputdir+'notebook_param.json', 'w') as fp:
     json.dump(param_dict, fp)
 
-  num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
   return df_performance, num_params
 
 
 
-def performance_table(src_name, tgt_name, training_params, inputdir, outputdir):
+def performance_table(src_name, tgt_name, training_params, i_rep, inputdir, outputdir):
 
   task_name = src_name+'_'+tgt_name
 
@@ -800,18 +822,18 @@ def performance_table(src_name, tgt_name, training_params, inputdir, outputdir):
   print('\n==========================================================================================================================')
   print('======================  train on source, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
-  source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'source/')
+  source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'source/rep{}/'.format(i_rep))
   print('\n==========================================================================================================================')
   print('======================  train on target, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
-  target_outputs = BaselineModel_fitting(training_params, tgt_name, src_name, inputdir, outputdir+'target/')
+  target_outputs = BaselineModel_fitting(training_params, tgt_name, src_name, i_rep, inputdir, outputdir+'target/rep{}/'.format(i_rep))
 
   print('\n==========================================================================================================================')
   print('======================  DANN training transferring knowledge(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
   
 
-  dann_outputs = DannModel_fitting(training_params, src_name, tgt_name, inputdir, outputdir+'dann/')
+  dann_outputs = DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'dann/rep{}/'.format(i_rep))
 
   time_elapsed = time.time() - start_time
 

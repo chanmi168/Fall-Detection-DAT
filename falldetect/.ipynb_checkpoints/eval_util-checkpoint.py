@@ -94,8 +94,10 @@ def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name,
   model.eval()
   src_data = src_loader.dataset.data
   src_labels = src_loader.dataset.labels
+  src_DataNameList_idx = src_loader.dataset.DataNameList_idx
   tgt_data = tgt_loader.dataset.data
   tgt_labels = tgt_loader.dataset.labels
+  tgt_DataNameList_idx = tgt_loader.dataset.DataNameList_idx
 
   src_data = src_data.to(device)
   src_labels = src_labels.to(device).long()
@@ -131,8 +133,6 @@ def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name,
   tgt_domain_acc = (tgt_domain_pred==tgt_domain_labels).sum()/data_size
 #   print('acc performance:', src_class_acc, src_domain_acc, tgt_class_acc, tgt_domain_acc)
 
-  # fig = plt.figure(figsize=(10, 10), dpi=100)
-
   ax1 = fig.add_subplot(4, 2, ax_idx[0])
   ax1.plot(src_class_sigmoid[:,1],'.b', label='src_class_sigmoid', markersize=3)
   ax1.plot(src_class_sigmoid[:,1].round(),'b', alpha=0.5, label='src_class_decision')
@@ -160,6 +160,11 @@ def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name,
   ax4.plot(tgt_domain_labels,'r', alpha=0.5, label='tgt_domain_labels')
   # ax4.set_title('tgt_domain_sigmoid (src=0, tgt=1)')
   ax4.legend(loc='upper right')
+	
+	
+  return np.stack((src_class_sigmoid[:,1], src_DataNameList_idx), axis=1), np.stack((tgt_class_sigmoid[:,1], tgt_DataNameList_idx), axis=1)
+
+#   return src_class_sigmoid[:,1], tgt_class_sigmoid[:,1]
 
 def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, plt_title, i_CV, outputdir):
     model.eval()
@@ -167,8 +172,8 @@ def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, s
       os.makedirs(outputdir)
     print('outputdir for model_output_diagnosis_trainval output:', outputdir)
     fig = plt.figure(figsize=(10, 10), dpi=dpi)
-    model_output_diagnosis(model, src_train_loader, tgt_train_loader, device, fig, 'train'+plt_title, ax_idx=[1,3,5,7])
-    model_output_diagnosis(model, src_val_loader, tgt_val_loader, device, fig, 'val'+plt_title, ax_idx=[2,4,6,8])
+    _, _ = model_output_diagnosis(model, src_train_loader, tgt_train_loader, device, fig, 'train'+plt_title, ax_idx=[1,3,5,7])
+    src_class_sigmoid, tgt_class_sigmoid = model_output_diagnosis(model, src_val_loader, tgt_val_loader, device, fig, 'val'+plt_title, ax_idx=[2,4,6,8])
     ax_list = fig.axes
     ax_list[0].set_ylabel('src_class', size='large')
     ax_list[1].set_ylabel('src_domain', size='large')
@@ -177,7 +182,9 @@ def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, s
     fig.tight_layout()
     plt.show()
     fig.savefig(outputdir+'class_out_diagnosis_CV{}{}'.format(i_CV, plt_title))
-
+	
+    data_saver(src_class_sigmoid, 'src_class_sigmoid_CV{}'.format(i_CV), outputdir)
+    data_saver(tgt_class_sigmoid, 'tgt_class_sigmoid_CV{}'.format(i_CV), outputdir)
 
 def model_features_diagnosis(model, src_loader, tgt_loader, device, ax, col_name):
   model.eval()
