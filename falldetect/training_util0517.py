@@ -17,7 +17,6 @@ import time
 import datetime
 from datetime import datetime
 import json
-import copy 
 
 # %matplotlib inline
 import matplotlib
@@ -32,152 +31,152 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# def train_epoch(train_loader, device, model, criterion, optimizer, epoch):
-#   debug = False
+def train_epoch(train_loader, device, model, criterion, optimizer, epoch):
+  debug = False
 
-#   model.train()
-#   total_train_loss = 0
+  model.train()
+  total_train_loss = 0
 
-#   TP = 0
-#   FP = 0
-#   TN = 0
-#   FN = 0
+  TP = 0
+  FP = 0
+  TN = 0
+  FN = 0
 
-# #   index_list = []
+#   index_list = []
+  for i, (data, labels) in enumerate(train_loader):
+#     index_list.append(index)
+#     print('in train_loader: label0, label1', i, (labels.numpy()==0).sum(), (labels.numpy()==1).sum())
+
 #   for i, (data, labels) in enumerate(train_loader):
-# #     index_list.append(index)
-# #     print('in train_loader: label0, label1', i, (labels.numpy()==0).sum(), (labels.numpy()==1).sum())
 
-# #   for i, (data, labels) in enumerate(train_loader):
+    data = data.to(device)
+    labels = labels.to(device).long()
 
-#     data = data.to(device)
-#     labels = labels.to(device).long()
+    # Forward pass
+    # feature_out, class_out = model(data)
+    feature_out, class_out, _ = model(data)
+    train_loss = criterion(class_out, labels)
 
-#     # Forward pass
-#     # feature_out, class_out = model(data)
-#     feature_out, class_out, _ = model(data)
-#     train_loss = criterion(class_out, labels)
+    # Backward and optimize
+    optimizer.zero_grad()
+    train_loss.backward()
+    optimizer.step()
 
-#     # Backward and optimize
-#     optimizer.zero_grad()
-#     train_loss.backward()
-#     optimizer.step()
+    # total_train_loss += train_loss.data.numpy()
+    total_train_loss += train_loss.data.detach().cpu().numpy()
+    out_sigmoid = torch.sigmoid(class_out).data.detach().cpu().numpy()
+    pred = np.argmax(out_sigmoid, 1)
+    labels_np = labels.data.detach().cpu().numpy()
 
-#     # total_train_loss += train_loss.data.numpy()
-#     total_train_loss += train_loss.data.detach().cpu().numpy()
-#     out_sigmoid = torch.sigmoid(class_out).data.detach().cpu().numpy()
-#     pred = np.argmax(out_sigmoid, 1)
-#     labels_np = labels.data.detach().cpu().numpy()
+    TP += ((pred==1) & (labels_np==1)).sum()
+    FP += ((pred==1) & (labels_np==0)).sum()
+    TN += ((pred==0) & (labels_np==0)).sum()
+    FN += ((pred==0) & (labels_np==1)).sum()
 
-#     TP += ((pred==1) & (labels_np==1)).sum()
-#     FP += ((pred==1) & (labels_np==0)).sum()
-#     TN += ((pred==0) & (labels_np==0)).sum()
-#     FN += ((pred==0) & (labels_np==1)).sum()
-
-#   train_size = train_loader.dataset.labels.detach().cpu().numpy().shape[0]
-#   train_loss = total_train_loss/train_size
-#   acc = (TP+TN)/train_size
-#   sensitivity = TP/(TP+FN)
-#   specificity = TN/(TN+FP)
-#   precision = TP/(TP+FP)
-#   F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
+  train_size = train_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  train_loss = total_train_loss/train_size
+  acc = (TP+TN)/train_size
+  sensitivity = TP/(TP+FN)
+  specificity = TN/(TN+FP)
+  precision = TP/(TP+FP)
+  F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
   
-# #   DATA_train_loader = train_loader.dataset.labels.numpy()
-# #   print('sampler: label0, label1', i, FP+TN, TP+FN)
-# #   print('in train_loader: label0, label1', i, (DATA_train_loader==0).sum(), (DATA_train_loader==1).sum())
+#   DATA_train_loader = train_loader.dataset.labels.numpy()
+#   print('sampler: label0, label1', i, FP+TN, TP+FN)
+#   print('in train_loader: label0, label1', i, (DATA_train_loader==0).sum(), (DATA_train_loader==1).sum())
 
-# #   unique, counts = np.unique(np.concatenate(index_list), return_counts=True)
-# #   print(dict(zip(unique, counts)))
-# #   print(counts)
-
-
-#   if debug:
-#     print('show train_epoch results')
-#     print('all samples n', train_size)
-#     print('TP', TP)
-#     print('FP', FP)
-#     print('TN', TN)
-#     print('FN', FN)
-#     print('train_size', train_size)
-#     print('acc', acc)
-#     print('sensitivity', sensitivity)
-#     print('precision', precision)
-#     print('specificity', specificity)
-#     print('F1', F1)
-
-#   performance_dict = {
-#       'loss': train_loss,
-#       'acc': acc,
-#       'sensitivity': sensitivity,
-#       'precision': precision,
-#       'specificity': specificity,
-#       'F1': F1,
-#   }
-#   return performance_dict
+#   unique, counts = np.unique(np.concatenate(index_list), return_counts=True)
+#   print(dict(zip(unique, counts)))
+#   print(counts)
 
 
-# def val_epoch(val_loader, device, model, criterion, optimizer, epoch, domain_name):
-#   debug = False
+  if debug:
+    print('show train_epoch results')
+    print('all samples n', train_size)
+    print('TP', TP)
+    print('FP', FP)
+    print('TN', TN)
+    print('FN', FN)
+    print('train_size', train_size)
+    print('acc', acc)
+    print('sensitivity', sensitivity)
+    print('precision', precision)
+    print('specificity', specificity)
+    print('F1', F1)
 
-#   model.eval()
+  performance_dict = {
+      'loss': train_loss,
+      'acc': acc,
+      'sensitivity': sensitivity,
+      'precision': precision,
+      'specificity': specificity,
+      'F1': F1,
+  }
+  return performance_dict
 
-#   total_val_loss = 0
-#   TP = 0
-#   FP = 0
-#   TN = 0
-#   FN = 0
-#   for i, (data, labels) in enumerate(val_loader):
-#     data = data.to(device)
-#     labels = labels.to(device).long()
+
+def val_epoch(val_loader, device, model, criterion, optimizer, epoch, domain_name):
+  debug = False
+
+  model.eval()
+
+  total_val_loss = 0
+  TP = 0
+  FP = 0
+  TN = 0
+  FN = 0
+  for i, (data, labels) in enumerate(val_loader):
+    data = data.to(device)
+    labels = labels.to(device).long()
     
-#     #Forward pass
-#     # feature_out, class_out = model(data)
-#     feature_out, class_out, _ = model(data)
-#     val_loss = criterion(class_out, labels)
+    #Forward pass
+    # feature_out, class_out = model(data)
+    feature_out, class_out, _ = model(data)
+    val_loss = criterion(class_out, labels)
     
-#     total_val_loss += val_loss.data.detach().cpu().numpy()
-#     out_sigmoid = torch.sigmoid(class_out).data.detach().cpu().numpy()
-#     pred = np.argmax(out_sigmoid, 1)
-#     labels_np = labels.data.detach().cpu().numpy()
+    total_val_loss += val_loss.data.detach().cpu().numpy()
+    out_sigmoid = torch.sigmoid(class_out).data.detach().cpu().numpy()
+    pred = np.argmax(out_sigmoid, 1)
+    labels_np = labels.data.detach().cpu().numpy()
 
-#     TP += ((pred==1) & (labels_np==1)).sum()
-#     FP += ((pred==1) & (labels_np==0)).sum()
-#     TN += ((pred==0) & (labels_np==0)).sum()
-#     FN += ((pred==0) & (labels_np==1)).sum()
+    TP += ((pred==1) & (labels_np==1)).sum()
+    FP += ((pred==1) & (labels_np==0)).sum()
+    TN += ((pred==0) & (labels_np==0)).sum()
+    FN += ((pred==0) & (labels_np==1)).sum()
 
-#   val_size = val_loader.dataset.labels.detach().cpu().numpy().shape[0]
-#   val_loss = total_val_loss/val_size
-#   acc = (TP+TN)/val_size
-#   sensitivity = TP/(TP+FN)
-#   specificity = TN/(TN+FP)
-#   precision = TP/(TP+FP)
-#   F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
+  val_size = val_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  val_loss = total_val_loss/val_size
+  acc = (TP+TN)/val_size
+  sensitivity = TP/(TP+FN)
+  specificity = TN/(TN+FP)
+  precision = TP/(TP+FP)
+  F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
 
-#   if debug:
-#     print('show val_epoch results')
-#     print('all samples n', val_size)
-#     print('TP', TP)
-#     print('FP', FP)
-#     print('TN', TN)
-#     print('FN', FN)
-#     print('val_size', val_size)
-#     print('acc', acc)
-#     print('sensitivity', sensitivity)
-#     print('precision', precision)
-#     print('specificity', specificity)
-#     print('F1', F1)
+  if debug:
+    print('show val_epoch results')
+    print('all samples n', val_size)
+    print('TP', TP)
+    print('FP', FP)
+    print('TN', TN)
+    print('FN', FN)
+    print('val_size', val_size)
+    print('acc', acc)
+    print('sensitivity', sensitivity)
+    print('precision', precision)
+    print('specificity', specificity)
+    print('F1', F1)
 
-#   performance_dict = {
-#       '{}_loss'.format(domain_name): val_loss,
-#       '{}_acc'.format(domain_name): acc,
-#       '{}_sensitivity'.format(domain_name): sensitivity,
-#       '{}_precision'.format(domain_name): precision,
-#       '{}_specificity'.format(domain_name): specificity,
-#       '{}_F1'.format(domain_name): F1,
-#   }
-#   return performance_dict
+  performance_dict = {
+      '{}_loss'.format(domain_name): val_loss,
+      '{}_acc'.format(domain_name): acc,
+      '{}_sensitivity'.format(domain_name): sensitivity,
+      '{}_precision'.format(domain_name): precision,
+      '{}_specificity'.format(domain_name): specificity,
+      '{}_F1'.format(domain_name): F1,
+  }
+  return performance_dict
 
-def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, epoch, training_mode):
+def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, epoch):
   dann.train()
 
   total_src_class_loss = 0
@@ -233,13 +232,9 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
     tgt_domain_loss = domain_criterion(tgt_domain_out, tgt_domain_labels)
     domain_loss = src_domain_loss + tgt_domain_loss
 
-    if training_mode == 'dann':
-      theta = 1
-      train_loss = src_class_loss + theta * domain_loss
-    else:
-      train_loss = src_class_loss
-	
-	
+    theta = 1
+    train_loss = src_class_loss + theta * domain_loss
+
     # Backward and optimize
     optimizer.zero_grad()
     train_loss.backward()
@@ -273,7 +268,7 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
   src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
   src_class_loss = total_src_class_loss/src_size
   src_domain_loss = total_src_domain_loss/src_size
-  src_acc = (src_TP+src_TN)/src_size
+  src_class_acc = (src_TP+src_TN)/src_size
   src_sensitivity = src_TP/(src_TP+src_FN)
   src_specificity = src_TN/(src_TN+src_FP)
   src_precision = src_TP/(src_TP+src_FP)
@@ -282,7 +277,7 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
   tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
   tgt_class_loss = total_tgt_class_loss/tgt_size
   tgt_domain_loss = total_tgt_domain_loss/tgt_size
-  tgt_acc = (tgt_TP+tgt_TN)/tgt_size
+  tgt_class_acc = (tgt_TP+tgt_TN)/tgt_size
   tgt_sensitivity = tgt_TP/(tgt_TP+tgt_FN)
   tgt_specificity = tgt_TN/(tgt_TN+tgt_FP)
   tgt_precision = tgt_TP/(tgt_TP+tgt_FP)
@@ -293,14 +288,14 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
   performance_dict = {
       'src_class_loss': src_class_loss,
       'src_domain_loss': src_domain_loss,
-      'src_acc': src_acc,
+      'src_class_acc': src_class_acc,
       'src_sensitivity': src_sensitivity,
       'src_precision': src_precision,
       'src_specificity': src_specificity,
       'src_F1': src_F1,
       'tgt_class_loss': tgt_class_loss,
       'tgt_domain_loss': tgt_domain_loss,
-      'tgt_acc': tgt_acc,
+      'tgt_class_acc': tgt_class_acc,
       'tgt_sensitivity': tgt_sensitivity,
       'tgt_precision': tgt_precision,
       'tgt_specificity': tgt_specificity,
@@ -312,7 +307,7 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
 
 def val_epoch_dann(src_loader, tgt_loader, device, 
                      dann,
-                     class_criterion, domain_criterion, epoch, training_mode):
+                     class_criterion, domain_criterion, epoch):
 
   dann.eval()
 
@@ -340,9 +335,6 @@ def val_epoch_dann(src_loader, tgt_loader, device,
   # for i, sdata in enumerate(src_loader):
     src_data, src_labels = sdata
     tgt_data, tgt_labels = tdata
-# 	print(src_labels.size(), tgt_labels.size())
-# 	sys.exit()
-
 
     src_data = src_data.to(device)
     src_labels = src_labels.to(device).long()
@@ -376,11 +368,8 @@ def val_epoch_dann(src_loader, tgt_loader, device,
     tgt_domain_loss = domain_criterion(tgt_domain_out, tgt_domain_labels)
     domain_loss = src_domain_loss + tgt_domain_loss
 
-    if training_mode == 'dann':
-      theta = 1
-      val_loss = src_class_loss + theta * domain_loss
-    else:
-      val_loss = src_class_loss
+    theta = 1
+    val_loss = src_class_loss + theta * domain_loss
 
     total_src_class_loss += src_class_loss.data.detach().cpu().numpy()
     total_tgt_class_loss += tgt_class_loss.data.detach().cpu().numpy()
@@ -408,7 +397,7 @@ def val_epoch_dann(src_loader, tgt_loader, device,
   src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
   src_class_loss = total_src_class_loss/src_size
   src_domain_loss = total_src_domain_loss/src_size
-  src_acc = (src_TP+src_TN)/src_size
+  src_class_acc = (src_TP+src_TN)/src_size
   src_sensitivity = src_TP/(src_TP+src_FN)
   src_specificity = src_TN/(src_TN+src_FP)
   src_precision = src_TP/(src_TP+src_FP)
@@ -417,7 +406,7 @@ def val_epoch_dann(src_loader, tgt_loader, device,
   tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
   tgt_class_loss = total_tgt_class_loss/tgt_size
   tgt_domain_loss = total_tgt_domain_loss/tgt_size
-  tgt_acc = (tgt_TP+tgt_TN)/tgt_size
+  tgt_class_acc = (tgt_TP+tgt_TN)/tgt_size
   tgt_sensitivity = tgt_TP/(tgt_TP+tgt_FN)
   tgt_specificity = tgt_TN/(tgt_TN+tgt_FP)
   tgt_precision = tgt_TP/(tgt_TP+tgt_FP)
@@ -428,14 +417,14 @@ def val_epoch_dann(src_loader, tgt_loader, device,
   performance_dict = {
       'src_class_loss': src_class_loss,
       'src_domain_loss': src_domain_loss,
-      'src_acc': src_acc,
+      'src_class_acc': src_class_acc,
       'src_sensitivity': src_sensitivity,
       'src_precision': src_precision,
       'src_specificity': src_specificity,
       'src_F1': src_F1,
       'tgt_class_loss': tgt_class_loss,
       'tgt_domain_loss': tgt_domain_loss,
-      'tgt_acc': tgt_acc,
+      'tgt_class_acc': tgt_class_acc,
       'tgt_sensitivity': tgt_sensitivity,
       'tgt_precision': tgt_precision,
       'tgt_specificity': tgt_specificity,
@@ -445,213 +434,202 @@ def val_epoch_dann(src_loader, tgt_loader, device,
 #   display(performance_dict)
   return performance_dict
 
+#   return val_loss_avg, src_class_loss_avg, tgt_class_loss_avg, src_domain_loss_avg, tgt_domain_loss_avg, src_class_acc, tgt_class_acc, domain_acc
 
-# def BaselineModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir): 
-#   show_train_log = False
-# #   show_diagnosis_plt = False
+def BaselineModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir): 
+  show_train_log = False
+#   show_diagnosis_plt = False
 
-#   if not os.path.exists(outputdir):
-#     os.makedirs(outputdir)
+  if not os.path.exists(outputdir):
+    os.makedirs(outputdir)
       
-#   # TODO: don't need to extract training_params
-#   classes_n = training_params['classes_n']
-#   CV_n = training_params['CV_n']
-#   num_epochs = training_params['num_epochs']
-#   channel_n = training_params['channel_n']
-#   batch_size = training_params['batch_size']
-#   learning_rate = training_params['learning_rate']
-#   extractor_type = training_params['extractor_type']
-#   device = training_params['device']
-#   show_diagnosis_plt = training_params['show_diagnosis_plt']
+  # TODO: don't need to extract training_params
+  classes_n = training_params['classes_n']
+  CV_n = training_params['CV_n']
+  num_epochs = training_params['num_epochs']
+  channel_n = training_params['channel_n']
+  batch_size = training_params['batch_size']
+  learning_rate = training_params['learning_rate']
+  extractor_type = training_params['extractor_type']
+  device = training_params['device']
+  show_diagnosis_plt = training_params['show_diagnosis_plt']
 
-#   df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
-#                                 columns=['i_CV',
-#                                          'val_src_acc','val_tgt_acc',
-#                                          'val_src_sensitivity','val_tgt_sensitivity',
-#                                          'val_src_precision','val_tgt_precision',
-#                                          'val_src_F1','val_tgt_F1',
-# 										 'val_domain_acc', 'PAD'])
+  df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
+                                columns=['i_CV',
+                                         'val_src_acc','val_tgt_acc',
+                                         'val_src_sensitivity','val_tgt_sensitivity',
+                                         'val_src_precision','val_tgt_precision',
+                                         'val_src_F1','val_tgt_F1','PAD'])
 
+  src_dataset_name = src_name.split('_')[0]
+  src_sensor_loc = src_name.split('_')[1]
 
-#   src_dataset_name = src_name.split('_')[0]
-#   src_sensor_loc = src_name.split('_')[1]
+  tgt_dataset_name = tgt_name.split('_')[0]
+  tgt_sensor_loc = tgt_name.split('_')[1]
 
-#   tgt_dataset_name = tgt_name.split('_')[0]
-#   tgt_sensor_loc = tgt_name.split('_')[1]
+  src_inputdir = inputdir + '{}/{}/rep{}/'.format(src_dataset_name, src_sensor_loc, i_rep)
+  tgt_inputdir = inputdir + '{}/{}/rep{}/'.format(tgt_dataset_name, tgt_sensor_loc, i_rep)
 
-#   src_inputdir = inputdir + '{}/{}/rep{}/'.format(src_dataset_name, src_sensor_loc, i_rep)
-#   tgt_inputdir = inputdir + '{}/{}/rep{}/'.format(tgt_dataset_name, tgt_sensor_loc, i_rep)
+#   get_src_loader = get_data_loader
+#   get_tgt_loader = get_data_loader
 
+  for i_CV in range(CV_n):
+    print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
+    # 1. prepare dataset
+    src_train_loader, src_val_loader = get_data_loader(src_inputdir, i_CV, batch_size, learning_rate, training_params)
+    tgt_train_loader, tgt_val_loader = get_data_loader(tgt_inputdir, i_CV, batch_size, learning_rate, training_params)
 
-#   for i_CV in range(CV_n):
-#     print('------------------------------Working on i_CV {}------------------------------'.format(i_CV))
-#     # 1. prepare dataset
-#     src_train_loader, src_val_loader = get_data_loader(src_inputdir, i_CV, batch_size, learning_rate, training_params)
-#     tgt_train_loader, tgt_val_loader = get_data_loader(tgt_inputdir, i_CV, batch_size, learning_rate, training_params)
+    # the model expect the same input dimension for src and tgt data
+    src_train_size = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
+    src_val_size = src_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
 
-#     # the model expect the same input dimension for src and tgt data
-#     src_train_size = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-#     src_val_size = src_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
+    tgt_train_size = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
+    tgt_val_size = tgt_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
 
-#     tgt_train_size = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
-#     tgt_val_size = tgt_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
+    src_input_dim = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
+    tgt_input_dim = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
 
-#     src_input_dim = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
-#     tgt_input_dim = tgt_train_loader.dataset.data.data.detach().cpu().numpy().shape[2]
+    # 2. prepare model
 
-#     # 2. prepare model
-
-#     total_step = len(src_train_loader)
+    total_step = len(src_train_loader)
 	
-#     train_performance_dict_list = list( {} for i in range(num_epochs) )
-#     val_performance_dict_list = list( {} for i in range(num_epochs) )
-# #     val_src_performance_dict_list = list( {} for i in range(num_epochs) )
-# #     val_tgt_performance_dict_list = list( {} for i in range(num_epochs) )
+    train_performance_dict_list = list( {} for i in range(num_epochs) )
+    val_src_performance_dict_list = list( {} for i in range(num_epochs) )
+    val_tgt_performance_dict_list = list( {} for i in range(num_epochs) )
 
-#     PAD_list = [0] * num_epochs
+    PAD_list = [0] * num_epochs
 	
-#     # model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
-#     if extractor_type == 'CNN':
-#       model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
-#     elif extractor_type == 'CNNLSTM':
-#       dropout = training_params['dropout']
-#       hiddenDim_f = training_params['hiddenDim_f']
-#       hiddenDim_y = training_params['hiddenDim_y']
-#       hiddenDim_d = training_params['hiddenDim_d']
-#       win_size = training_params['win_size']
-#       win_stride = training_params['win_stride']
-#       step_n = training_params['step_n']
-#       model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
+    # model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
+    if extractor_type == 'CNN':
+      model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
+    elif extractor_type == 'CNNLSTM':
+      dropout = training_params['dropout']
+      hiddenDim_f = training_params['hiddenDim_f']
+      hiddenDim_y = training_params['hiddenDim_y']
+      hiddenDim_d = training_params['hiddenDim_d']
+      win_size = training_params['win_size']
+      win_stride = training_params['win_stride']
+      step_n = training_params['step_n']
+      model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
 
-#     model_name = model.__class__.__name__
-#     # loss and optimizer
-#     class_criterion = nn.CrossEntropyLoss()
-#     domain_criterion = nn.CrossEntropyLoss()
-#     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.01)
+    model_name = model.__class__.__name__
+    # loss and optimizer
+    class_criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.01)
 
-# #     if show_diagnosis_plt:
-# #       model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-# #       model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+#     if show_diagnosis_plt:
+#       model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+#       model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 
-#     # 3. fit the model
-#     for epoch in range(num_epochs):
-#       train_performance_dict_list[epoch] = train_epoch_dann(src_train_loader, tgt_train_loader, device, 
-#                                           model, 
-#                                           class_criterion, domain_criterion, optimizer, epoch, is_dann=False)
-	
-#       val_performance_dict_list[epoch] = val_epoch_dann(src_val_loader, tgt_val_loader, device, 
-#                                       model,
-#                                       class_criterion, domain_criterion, epoch, is_dann=False)
-# #       train_performance_dict = train_epoch(src_train_loader, device, model, class_criterion, optimizer, epoch)
-# #       train_performance_dict_list[epoch] = train_performance_dict
+    # 3. fit the model
+    for epoch in range(num_epochs):
+      train_performance_dict = train_epoch(src_train_loader, device, model, class_criterion, optimizer, epoch)
+      train_performance_dict_list[epoch] = train_performance_dict
 
-# #       val_src_performance_dict = val_epoch(src_val_loader, device, model, class_criterion, optimizer, epoch, 'src')
-# #       val_src_performance_dict_list[epoch] = val_src_performance_dict
+      val_src_performance_dict = val_epoch(src_val_loader, device, model, class_criterion, optimizer, epoch, 'src')
+      val_src_performance_dict_list[epoch] = val_src_performance_dict
 
-# #       val_tgt_performance_dict = val_epoch(tgt_val_loader, device, model, class_criterion, optimizer, epoch, 'tgt')
-# #       val_tgt_performance_dict_list[epoch] = val_tgt_performance_dict
+      val_tgt_performance_dict = val_epoch(tgt_val_loader, device, model, class_criterion, optimizer, epoch, 'tgt')
+      val_tgt_performance_dict_list[epoch] = val_tgt_performance_dict
 		
-#       PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
-#       PAD_list[epoch] = PAD
+      PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
+      PAD_list[epoch] = PAD
 
-# #     fig = plt.figure(figsize=(5, 3), dpi=80)
-# #     ax1 = fig.add_subplot(1, 1, 1)
-# #     ax1.set_title('PAD')
-# #     ax1.set_xlabel('epoch')
-# #     ax1.plot(np.arange(num_epochs), PAD_list, label='PAD')
-# #     ax1.legend(loc="upper right")
+#     fig = plt.figure(figsize=(5, 3), dpi=80)
+#     ax1 = fig.add_subplot(1, 1, 1)
+#     ax1.set_title('PAD')
+#     ax1.set_xlabel('epoch')
+#     ax1.plot(np.arange(num_epochs), PAD_list, label='PAD')
+#     ax1.legend(loc="upper right")
 
-# #     display(train_performance_dict_list[epoch])
-# #     display(val_performance_dict_list[epoch])
-# #     sys.exit()
+
 	
-#     df_performance.loc[i_CV,['i_CV',
-# 							 'val_src_acc','val_tgt_acc',
-# 							 'val_src_sensitivity','val_tgt_sensitivity',
-# 							 'val_src_precision','val_tgt_precision',
-# 							 'val_src_F1','val_tgt_F1', 'val_domain_acc', 'PAD']] = [i_CV, 
-# 															val_performance_dict_list[epoch]['src_acc'], val_performance_dict_list[epoch]['tgt_acc'],
-# 															val_performance_dict_list[epoch]['src_sensitivity'], val_performance_dict_list[epoch]['tgt_sensitivity'], 
-# 															val_performance_dict_list[epoch]['src_precision'], val_performance_dict_list[epoch]['tgt_precision'], 
-# 															val_performance_dict_list[epoch]['src_F1'], val_performance_dict_list[epoch]['tgt_F1'], val_performance_dict_list[epoch]['domain_acc'], PAD_list[epoch]]
+    df_performance.loc[i_CV,['i_CV',
+							 'val_src_acc','val_tgt_acc',
+							 'val_src_sensitivity','val_tgt_sensitivity',
+							 'val_src_precision','val_tgt_precision',
+							 'val_src_F1','val_tgt_F1', 'PAD']] = [i_CV, 
+															val_src_performance_dict_list[epoch]['src_acc'], val_tgt_performance_dict_list[epoch]['tgt_acc'],
+															val_src_performance_dict_list[epoch]['src_sensitivity'], val_tgt_performance_dict_list[epoch]['tgt_sensitivity'], 
+															val_src_performance_dict_list[epoch]['src_precision'], val_tgt_performance_dict_list[epoch]['tgt_precision'], 
+															val_src_performance_dict_list[epoch]['src_F1'], val_tgt_performance_dict_list[epoch]['tgt_F1'], PAD_list[epoch]]
 	
     
-#     if show_diagnosis_plt:
-#       dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir)
-# #       baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, PAD_list, i_CV, outputdir)
+    if show_diagnosis_plt:
+      baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, PAD_list, i_CV, outputdir)
 
-#     print('-----------------Exporting pytorch model-----------------')
-#     if extractor_type == 'CNN':
-#       loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
-#     elif extractor_type == 'CNNLSTM':
-#       dropout = training_params['dropout']
-#       hiddenDim_f = training_params['hiddenDim_f']
-#       hiddenDim_y = training_params['hiddenDim_y']
-#       hiddenDim_d = training_params['hiddenDim_d']
-#       win_size = training_params['win_size']
-#       win_stride = training_params['win_stride']
-#       step_n = training_params['step_n']
-#       loaded_model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
+    print('-----------------Exporting pytorch model-----------------')
+    if extractor_type == 'CNN':
+      loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
+    elif extractor_type == 'CNNLSTM':
+      dropout = training_params['dropout']
+      hiddenDim_f = training_params['hiddenDim_f']
+      hiddenDim_y = training_params['hiddenDim_y']
+      hiddenDim_d = training_params['hiddenDim_d']
+      win_size = training_params['win_size']
+      win_stride = training_params['win_stride']
+      step_n = training_params['step_n']
+      loaded_model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
 
-#     export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
+    export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
 
-#     print('-----------------Evaluating trained model-----------------')
-#     if show_diagnosis_plt:
-#       model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-#       model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+    print('-----------------Evaluating trained model-----------------')
+    if show_diagnosis_plt:
+      model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+      model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
 
-#   # 5. export model performance as df
-# # 	TODO: probably remove this
-#   print('---------------Exporting model performance---------------')
-#   export_perofmance(df_performance, CV_n, outputdir)
+  # 5. export model performance as df
+# 	TODO: probably remove this
+  print('---------------Exporting model performance---------------')
+  export_perofmance(df_performance, CV_n, outputdir)
 
-# #   print('src val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_loss'], df_performance.loc['std']['val_loss']))
-# #   print('src val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_acc'], df_performance.loc['std']['val_src_acc']))
+#   print('src val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_loss'], df_performance.loc['std']['val_loss']))
+#   print('src val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_src_acc'], df_performance.loc['std']['val_src_acc']))
   
-# # #   print('tgt val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_loss'], df_performance.loc['std']['tgt_val_loss']))
-# #   print('tgt val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_acc'], df_performance.loc['std']['val_tgt_acc']))
+# #   print('tgt val loss: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['tgt_val_loss'], df_performance.loc['std']['tgt_val_loss']))
+#   print('tgt val acc: {:.4f}±{:.4f}'.format(df_performance.loc['mean']['val_tgt_acc'], df_performance.loc['std']['val_tgt_acc']))
 
-#   # print('=========================================================')
+  # print('=========================================================')
 
-#   # 6. export notebook parameters as dict
-#   # datetime object containing current date and time
-# # 	TODO: probably remove this
-#   print('--------------Exporting notebook parameters--------------')
-#   now = datetime.now()
-#   dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
-#   samples_n = src_train_size + src_val_size
+  # 6. export notebook parameters as dict
+  # datetime object containing current date and time
+# 	TODO: probably remove this
+  print('--------------Exporting notebook parameters--------------')
+  now = datetime.now()
+  dt_string = now.strftime("%Y/%m/%d %H:%M:%S")
+  samples_n = src_train_size + src_val_size
 
-#   # TODO: don't need to make param_dict
-#   num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+  # TODO: don't need to make param_dict
+  num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-#   param_dict = {
-#       'num_params': num_params,
-#       'i_rep': i_rep,
-#       'CV_n': CV_n,
-#       'samples_n': samples_n,
-#       'classes_n': classes_n,
-#       'model_name': model_name,
-#       'dataset_name': src_dataset_name,
-#       'num_epochs': num_epochs,
-#       'channel_n': channel_n,
-#       'batch_size': batch_size,
-#       'learning_rate': learning_rate,
-#       'sensor_loc': src_sensor_loc,
-#       'date': dt_string,
-#       'input_dim': (batch_size, src_train_loader.dataset.data.size()[1], src_train_loader.dataset.data.size()[2]),
-#       'output_dim': src_train_loader.dataset.labels[0:batch_size].data.detach().cpu().numpy().shape,
-#   }
+  param_dict = {
+      'num_params': num_params,
+      'i_rep': i_rep,
+      'CV_n': CV_n,
+      'samples_n': samples_n,
+      'classes_n': classes_n,
+      'model_name': model_name,
+      'dataset_name': src_dataset_name,
+      'num_epochs': num_epochs,
+      'channel_n': channel_n,
+      'batch_size': batch_size,
+      'learning_rate': learning_rate,
+      'sensor_loc': src_sensor_loc,
+      'date': dt_string,
+      'input_dim': (batch_size, src_train_loader.dataset.data.size()[1], src_train_loader.dataset.data.size()[2]),
+      'output_dim': src_train_loader.dataset.labels[0:batch_size].data.detach().cpu().numpy().shape,
+  }
 
-#   print(param_dict)
+  print(param_dict)
 
-#   with open(outputdir+'notebook_param.json', 'w') as fp:
-#     json.dump(param_dict, fp)
+  with open(outputdir+'notebook_param.json', 'w') as fp:
+    json.dump(param_dict, fp)
 
 
 
-#   return df_performance, num_params
+  return df_performance, num_params
 
-def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir, training_mode): 
+def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir): 
 #   show_diagnosis_plt = False
 
   if not os.path.exists(outputdir):
@@ -670,17 +648,11 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
 
   df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
                                 columns=['i_CV', 
-							 'val_src_acc','val_tgt_acc',
-							 'val_src_sensitivity','val_tgt_sensitivity',
-							 'val_src_precision','val_tgt_precision',
-							 'val_src_F1','val_tgt_F1',
-							 'val_domain_acc', 'PAD', 'epoch_optimal'])
-
-# 							 'val_src_class_acc','val_tgt_class_acc',
-# 							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
-# 							 'val_src_class_precision','val_tgt_class_precision',
-# 							 'val_src_class_F1','val_tgt_class_F1',
-# 							 'val_domain_acc','PAD'])
+							 'val_src_class_acc','val_tgt_class_acc',
+							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
+							 'val_src_class_precision','val_tgt_class_precision',
+							 'val_src_class_F1','val_tgt_class_F1',
+							 'val_domain_acc','PAD'])
 	
   src_dataset_name = src_name.split('_')[0]
   src_sensor_loc = src_name.split('_')[1]
@@ -744,74 +716,39 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
 #       model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 #       model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 
-    F1_optimal = 0
-
     for epoch in range(num_epochs):
       train_performance_dict_list[epoch] = train_epoch_dann(src_train_loader, tgt_train_loader, device, 
                                           model, 
-                                          class_criterion, domain_criterion, optimizer, epoch, training_mode)
+                                          class_criterion, domain_criterion, optimizer, epoch)
 	
       val_performance_dict_list[epoch] = val_epoch_dann(src_val_loader, tgt_val_loader, device, 
                                       model,
-                                      class_criterion, domain_criterion, epoch, training_mode)
+                                      class_criterion, domain_criterion, epoch)
       PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
       PAD_list[epoch] = PAD
-		
-      if training_mode == 'dann':
-        if F1_optimal < val_performance_dict_list[epoch]['tgt_F1'] or epoch < 5:
-          F1_optimal = val_performance_dict_list[epoch]['tgt_F1']
-          epoch_optimal = epoch
-          model_optimal = copy.deepcopy(model)
-      elif training_mode == 'src':
-        if F1_optimal < val_performance_dict_list[epoch]['tgt_F1'] or epoch < 5:
-          F1_optimal = val_performance_dict_list[epoch]['tgt_F1']
-          epoch_optimal = epoch
-          model_optimal = copy.deepcopy(model)
-      elif training_mode == 'tgt':
-        if F1_optimal < val_performance_dict_list[epoch]['src_F1'] or epoch < 5:
-          F1_optimal = val_performance_dict_list[epoch]['src_F1']
-          epoch_optimal = epoch
-          model_optimal = copy.deepcopy(model)
 
-
-		
-#     print(epoch_optimal, src_F1_optimal)
-#     print([val_performance_dict['src_F1'] for val_performance_dict in val_performance_dict_list])
 #     fig = plt.figure(figsize=(5, 3), dpi=80)
 #     ax1 = fig.add_subplot(1, 1, 1)
 #     ax1.set_title('PAD')
 #     ax1.set_xlabel('epoch')
 #     ax1.plot(np.arange(num_epochs), PAD_list, label='PAD')
 #     ax1.legend(loc="upper right")
-# 							 'val_src_class_acc','val_tgt_class_acc',
-# 							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
-# 							 'val_src_class_precision','val_tgt_class_precision',
-# 							 'val_src_class_F1','val_tgt_class_F1',
-# 							 'val_domain_acc', 'PAD'
-					
-#     display(val_performance_dict_list[epoch])
-#     val_src_F1_list = [val_performance_dict['src_F1'] for val_performance_dict in val_performance_dict_list]
-#     print(val_src_F1_list)
-#     print(val_src_F1_list.index(max(val_src_F1_list)))
-#     epoch_optimal = val_src_F1_list.index(max(val_src_F1_list))
-#     sys.exit()
 
     df_performance.loc[i_CV,['i_CV', 
-							 'val_src_acc','val_tgt_acc',
-							 'val_src_sensitivity','val_tgt_sensitivity',
-							 'val_src_precision','val_tgt_precision',
-							 'val_src_F1','val_tgt_F1',
-							 'val_domain_acc', 'PAD', 'epoch_optimal']] = [i_CV, 
-												   val_performance_dict_list[epoch_optimal]['src_acc'], val_performance_dict_list[epoch_optimal]['tgt_acc'], 
-												   val_performance_dict_list[epoch_optimal]['src_sensitivity'], val_performance_dict_list[epoch_optimal]['tgt_sensitivity'], 
-												   val_performance_dict_list[epoch_optimal]['src_precision'], val_performance_dict_list[epoch_optimal]['tgt_precision'], 
-												   val_performance_dict_list[epoch_optimal]['src_F1'], val_performance_dict_list[epoch_optimal]['tgt_F1'], 
-												   val_performance_dict_list[epoch_optimal]['domain_acc'], PAD_list[epoch_optimal], epoch_optimal]
+							 'val_src_class_acc','val_tgt_class_acc',
+							 'val_src_class_sensitivity','val_tgt_class_sensitivity',
+							 'val_src_class_precision','val_tgt_class_precision',
+							 'val_src_class_F1','val_tgt_class_F1',
+							 'val_domain_acc', 'PAD']] = [i_CV, 
+												   val_performance_dict_list[epoch]['src_class_acc'], val_performance_dict_list[epoch]['tgt_class_acc'], 
+												   val_performance_dict_list[epoch]['src_sensitivity'], val_performance_dict_list[epoch]['tgt_sensitivity'], 
+												   val_performance_dict_list[epoch]['src_precision'], val_performance_dict_list[epoch]['tgt_precision'], 
+												   val_performance_dict_list[epoch]['src_F1'], val_performance_dict_list[epoch]['tgt_F1'], 
+												   val_performance_dict_list[epoch]['domain_acc'], PAD_list[epoch]]
 							 
 	
     if show_diagnosis_plt:
-#       dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir)
-      dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, epoch_optimal, outputdir)
+      dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir)
     
     print('-----------------Exporting pytorch model-----------------')
     # loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
@@ -828,15 +765,12 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
       loaded_model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
 
     loaded_model.eval()
-#     export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
-    export_model(model_optimal, loaded_model, outputdir+'model_CV{}'.format(i_CV))
+    export_model(model, loaded_model, outputdir+'model_CV{}'.format(i_CV))
 
     print('-----------------Evaluating trained model-----------------')
     if show_diagnosis_plt:
-      model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch_optimal), i_CV, outputdir)
-      model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch_optimal), i_CV, outputdir)
-#       model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
-#       model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+      model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+      model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
 
   # 5. export model performance as df
   print('---------------Exporting model performance---------------')
@@ -869,7 +803,6 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
       'input_dim': (batch_size, src_train_loader.dataset.data.size()[1], src_train_loader.dataset.data.size()[2]),
       'output_dim': 2,
       'label_dim': src_train_loader.dataset.labels[0:batch_size].data.detach().cpu().numpy().shape,
-	  'epoch_optimal': epoch_optimal
   }
   print(param_dict)
 
@@ -889,20 +822,18 @@ def performance_table(src_name, tgt_name, training_params, i_rep, inputdir, outp
   print('\n==========================================================================================================================')
   print('======================  train on source, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
-  source_outputs = DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'source/rep{}/'.format(i_rep), training_mode='src')
-#   source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'source/rep{}/'.format(i_rep))
+  source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'source/rep{}/'.format(i_rep))
   print('\n==========================================================================================================================')
   print('======================  train on target, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
-  target_outputs = DannModel_fitting(training_params, tgt_name, src_name, i_rep, inputdir, outputdir+'target/rep{}/'.format(i_rep), training_mode='tgt')
-#   target_outputs = BaselineModel_fitting(training_params, tgt_name, src_name, i_rep, inputdir, outputdir+'target/rep{}/'.format(i_rep))
+  target_outputs = BaselineModel_fitting(training_params, tgt_name, src_name, i_rep, inputdir, outputdir+'target/rep{}/'.format(i_rep))
 
   print('\n==========================================================================================================================')
   print('======================  DANN training transferring knowledge(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
   
 
-  dann_outputs = DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'dann/rep{}/'.format(i_rep), training_mode='dann')
+  dann_outputs = DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'dann/rep{}/'.format(i_rep))
 
   time_elapsed = time.time() - start_time
 
@@ -922,8 +853,7 @@ def performance_table(src_name, tgt_name, training_params, i_rep, inputdir, outp
     df_performance_table.loc['batch_size',training_params['HP_name']] = training_params['batch_size']
     df_performance_table.loc['learning_rate',training_params['HP_name']] = training_params['learning_rate']
     df_performance_table.loc['source',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_src.loc['mean']['val_tgt_{}'.format(metric_name)], df_performance_src.loc['std']['val_tgt_{}'.format(metric_name)])
-    df_performance_table.loc['DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_tgt_{}'.format(metric_name)], df_performance_dann.loc['std']['val_tgt_{}'.format(metric_name)])
-#     df_performance_table.loc['DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_tgt_class_{}'.format(metric_name)], df_performance_dann.loc['std']['val_tgt_class_{}'.format(metric_name)])
+    df_performance_table.loc['DANN',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_tgt_class_{}'.format(metric_name)], df_performance_dann.loc['std']['val_tgt_class_{}'.format(metric_name)])
     df_performance_table.loc['target',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_tgt.loc['mean']['val_src_{}'.format(metric_name)], df_performance_tgt.loc['std']['val_src_{}'.format(metric_name)])
     df_performance_table.loc['domain',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_dann.loc['mean']['val_domain_acc'], df_performance_dann.loc['std']['val_domain_acc'])
     df_performance_table.loc['PAD_source',training_params['HP_name']] = '{:.3f}±{:.3f}'.format(df_performance_src.loc['mean']['PAD'], df_performance_dann.loc['std']['PAD'])

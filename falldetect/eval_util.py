@@ -38,34 +38,35 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401 unused import
 
 dpi = 80
 
-def baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, PAD_list, i_CV, outputdir):
-  train_performance_epochs = pd.DataFrame(train_performance_dict_list)
-  val_src_performance_epochs = pd.DataFrame(val_src_performance_dict_list)
-  val_tgt_performance_epochs = pd.DataFrame(val_tgt_performance_dict_list)
+# def baseline_learning_diagnosis(num_epochs, train_performance_dict_list, val_src_performance_dict_list, val_tgt_performance_dict_list, PAD_list, i_CV, outputdir):
+#   train_performance_epochs = pd.DataFrame(train_performance_dict_list)
+#   val_src_performance_epochs = pd.DataFrame(val_src_performance_dict_list)
+#   val_tgt_performance_epochs = pd.DataFrame(val_tgt_performance_dict_list)
 
-#   metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1']
-  metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1', 'PAD']
+# #   metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1']
+#   metric_list = ['loss', 'acc', 'sensitivity', 'precision', 'F1', 'PAD']
 
-  if not os.path.exists(outputdir):
-      os.makedirs(outputdir)
-  print('outputdir for baseline_learning_diagnosis output:', outputdir)
-  fig = plt.figure(figsize=(5*len(metric_list), 3), dpi=dpi)
+#   if not os.path.exists(outputdir):
+#       os.makedirs(outputdir)
+#   print('outputdir for baseline_learning_diagnosis output:', outputdir)
+#   fig = plt.figure(figsize=(5*len(metric_list), 3), dpi=dpi)
 
-  for i, metric_name in enumerate(metric_list):
-    ax1 = fig.add_subplot(1, len(metric_list), i+1)
-    ax1.set_title('{}_epochs'.format(metric_name))
-    ax1.set_xlabel('epoch')
-    if metric_name=='PAD':
-      ax1.plot(np.arange(num_epochs), PAD_list, color='blue', label='PAD_val')
-    else:
-      ax1.plot(np.arange(num_epochs), train_performance_epochs['{}'.format(metric_name)].values, color='blue', label='train')
-      ax1.plot(np.arange(num_epochs), val_src_performance_epochs['src_{}'.format(metric_name)].values, color='red', label='val_src')
-      ax1.plot(np.arange(num_epochs), val_tgt_performance_epochs['tgt_{}'.format(metric_name)].values, color='green', label='val_tgt')
-    ax1.legend(loc="upper right")
-#     plt.show()
-    fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
+#   for i, metric_name in enumerate(metric_list):
+#     ax1 = fig.add_subplot(1, len(metric_list), i+1)
+#     ax1.set_title('{}_epochs'.format(metric_name))
+#     ax1.set_xlabel('epoch')
+#     if metric_name=='PAD':
+#       ax1.plot(np.arange(num_epochs), PAD_list, color='blue', label='PAD_val')
+#     else:
+#       ax1.plot(np.arange(num_epochs), train_performance_epochs['{}'.format(metric_name)].values, color='blue', label='train')
+#       ax1.plot(np.arange(num_epochs), val_src_performance_epochs['src_{}'.format(metric_name)].values, color='red', label='val_src')
+#       ax1.plot(np.arange(num_epochs), val_tgt_performance_epochs['tgt_{}'.format(metric_name)].values, color='green', label='val_tgt')
+#     ax1.legend(loc="upper right")
+# #     plt.show()
+#     fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 
-def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir):
+# def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir):
+def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, epoch_optimal, outputdir):
   train_performance_epochs = pd.DataFrame(train_performance_dict_list)
   val_performance_epochs = pd.DataFrame(val_performance_dict_list)
 
@@ -74,7 +75,9 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
   print('outputdir for dann_learning_diagnosis output:', outputdir)
 
 #   metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc']
-  metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc', 'PAD']
+#   metric_list = ['src_class_loss', 'src_acc', 'tgt_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc', 'PAD']
+  metric_list = ['class_loss', 'acc', 'sensitivity', 'precision', 'F1', 'PAD']
+
   fig = plt.figure(figsize=(5*len(metric_list), 3), dpi=dpi)
 
   for i, metric_name in enumerate(metric_list):
@@ -84,10 +87,13 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
       if metric_name=='PAD':
         ax1.plot(np.arange(num_epochs), PAD_list, color='blue', label='PAD_val')
       else:
-        ax1.plot(np.arange(num_epochs), train_performance_epochs[metric_name].values, color='blue', label='train')
-        ax1.plot(np.arange(num_epochs), val_performance_epochs[metric_name].values, color='red', label='val')
+        ax1.plot(np.arange(num_epochs), train_performance_epochs['src_{}'.format(metric_name)].values, color='blue', label='train')
+        ax1.plot(np.arange(num_epochs), val_performance_epochs['src_{}'.format(metric_name)].values, color='red', label='val_src')
+        ax1.plot(np.arange(num_epochs), val_performance_epochs['tgt_{}'.format(metric_name)].values, color='green', label='val_tgt')
+
+        ax1.axvline(epoch_optimal, linestyle='--', color='gray', alpha=0.7, label='checkpoint')
         ax1.legend(loc="upper right")
-#   plt.show()
+		
   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 
 def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name, ax_idx):

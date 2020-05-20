@@ -19,8 +19,11 @@ echo '=================================running UMAFall_UPFall_cross_config [resa
 # inputdir='../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_weighted'
 # outputdir='../../data_mic/stage3/UMAFall_UPFall_cross_config_diffCV_resample_weighted'
 
-inputdir='../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_weighted_refactor'
-outputdir='../../data_mic/stage3/UMAFall_UPFall_cross_config_diffCV_resample_weighted_refactor'
+# inputdir='../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_weighted_refactor'
+
+inputdir='../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_earlystop'
+
+outputdir='../../data_mic/stage3/UMAFall_UPFall_cross_config_diffCV_resample_earlystop'
 mkdir -p $outputdir
 
 python stage3_model_eval_allHP.py \

@@ -66,8 +66,8 @@ def get_data_loader(inputdir, i_CV, batch_size, learning_rate, training_params):
   train_DataNameList_idx = data_loader('DataNameList_idx', train_inputdir)
   val_DataNameList_idx = data_loader('DataNameList_idx', val_inputdir)
 
-  print('train_data shape:', train_data.shape)
-  print('val_data shape:', val_data.shape)
+  print('train_data shape: {} [{}:{}]'.format(train_data.shape, (train_labels==0).sum(), (train_labels==1).sum()))
+  print('val_data shape: {} [{}:{}]'.format(val_data.shape, (val_labels==0).sum(), (val_labels==1).sum()))
 
   train_size = train_labels.shape[0]
   val_size = val_labels.shape[0]

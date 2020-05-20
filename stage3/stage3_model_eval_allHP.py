@@ -89,9 +89,12 @@ parser.add_argument('--variable_name', metavar='variable_name', help='key in tra
 
 # args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV',
 #                           '--output_folder', '../../data_mic/stage3/test',
+
+
 # args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_WithoutNormal_18hz_5fold_UPFall_UMAFall_cross-config_diffCV',
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_weighted_refactor',
 #                           '--output_folder', '../../data_mic/stage3/test',
-#                           '--training_params_file', 'training_params_list_v1.json',
+#                           '--training_params_file', 'training_params_list_fixed.json',
 # #                           '--tasks_list', 'UMAFall_chest-UPFall_neck UMAFall_wrist-UPFall_wrist UMAFall_waist-UPFall_belt UMAFall_leg-UPFall_rightpocket UMAFall_ankle-UPFall_ankle',
 #                           '--tasks_list', 'UPFall_neck-UMAFall_chest UPFall_wrist-UMAFall_wrist UPFall_belt-UMAFall_waist UPFall_rightpocket-UMAFall_leg UPFall_ankle-UMAFall_ankle',
 #                           '--variable_name', 'HP_name',])
@@ -236,7 +239,7 @@ for training_params in training_params_list:
     print('{}\t\t{}'.format(training_params['HP_name'], training_params['channel_n']))
 
 
-# In[11]:
+# In[13]:
 
 
 df_task_list = dict( zip(df_metric_keys,[[], [], [], []]))
@@ -246,10 +249,10 @@ dict_task_all = {}
 for task_item in tasks_list:
     (src_name, tgt_name) = task_item
     print(task_item)
-    training_type = 'source'
     
     dict_task = dict( zip( dict_task_name_list,[{},{},{},{},{},{}] ) )
-    
+
+    training_type = 'source'
     for training_params in training_params_list:
         df_list = []
         for i_rep in range(training_params['rep_n']):
@@ -266,8 +269,9 @@ for task_item in tasks_list:
         df_list = []
         for i_rep in range(training_params['rep_n']):
             df_inputdir = inputdir+src_name+'_'+tgt_name+'/{}/{}/rep{}/df_performance.csv'.format(training_params['HP_name'],training_type,i_rep)
-            df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_tgt_class_acc','val_tgt_class_sensitivity','val_tgt_class_precision','val_tgt_class_F1','PAD']]
-            df = df.rename(columns={'val_tgt_class_acc':'acc','val_tgt_class_sensitivity':'sensitivity','val_tgt_class_precision':'precision','val_tgt_class_F1':'F1'})
+            df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_tgt_acc','val_tgt_sensitivity','val_tgt_precision','val_tgt_F1','PAD']]
+#             df = df.rename(columns={'val_tgt_class_acc':'acc','val_tgt_class_sensitivity':'sensitivity','val_tgt_class_precision':'precision','val_tgt_class_F1':'F1'})
+            df = df.rename(columns={'val_tgt_acc':'acc','val_tgt_sensitivity':'sensitivity','val_tgt_precision':'precision','val_tgt_F1':'F1'})
             df_list.append(df)
 
 #         dict_task['N_ch={}'.format(training_params['channel_n'])]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
@@ -301,7 +305,7 @@ for task_item in tasks_list:
 
 
 
-# In[12]:
+# In[14]:
 
 
 color_dict = {'Green': '#3cb44b', 
@@ -334,10 +338,10 @@ color_dict = {'Green': '#3cb44b',
 colornames = list(color_dict.keys())
 
 
-# In[13]:
+# In[ ]:
 
 
-min([0,1,-2,3,4])
+
 
 
 # In[ ]:
@@ -346,7 +350,7 @@ min([0,1,-2,3,4])
 
 
 
-# In[14]:
+# In[15]:
 
 
 # def plot_metrics(task_name, metric_names, HP_name, dict_task_HP, outputdir):
@@ -470,7 +474,7 @@ for task_name, dict_task in dict_task_all.items():
 
 
 
-# In[15]:
+# In[16]:
 
 
 def F1_checker_each(dict_task_HP):
@@ -485,7 +489,7 @@ def F1_checker_each(dict_task_HP):
             print('***      F1 for a CV, a rep computed incorrectly in {}     ***'.format(key))
 
 
-# In[16]:
+# In[17]:
 
 
 def F1_checker_mean(dict_df):
@@ -511,7 +515,7 @@ def F1_checker_mean(dict_df):
 
 
 
-# In[17]:
+# In[18]:
 
 
 debug_F1 = False
