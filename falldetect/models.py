@@ -33,6 +33,10 @@ import torch.nn.functional as F
 
 HIDDEN_DIM = 50
 KERNEL_SIZE = 3
+# P_DROPOUT = 0.1
+P_DROPOUT = 0.5
+
+# λ = 0.31 #ref: DANN paper page 19
 
 class GradReverse(torch.autograd.Function):
   """
@@ -52,7 +56,7 @@ class GradReverse(torch.autograd.Function):
       return GradReverse.apply(x, constant)
 
 
-
+# DON'T DELETE
 # Convolutional neural network (two convolutional layers)
 class FeatureExtractor(nn.Module):
   def __init__(self, input_dim=50, channel_n=16):
@@ -85,16 +89,71 @@ class FeatureExtractor(nn.Module):
       self.feature_out_dim = int(pool_layer3_dim*channel_n)
 #       self.feature_out_dim = int(pool_layer2_dim*channel_n)
       pytorch_total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-      print('FeatureExtractor_total_params:', pytorch_total_params)
-      
+#       print('FeatureExtractor_total_params:', pytorch_total_params)
+#       print('feature_out_dim:', self.feature_out_dim)
+
   def forward(self, x):
     out1 = self.layer1(x.float())
     out2 = self.layer2(out1)
     out3 = self.layer3(out2)
-    out3 = out3.reshape(out3.size(0), -1)
-    return out3
+    out = out3.reshape(out3.size(0), -1)
+    return out
 #     out2 = out2.reshape(out2.size(0), -1)
 #     return out2
+
+# class FeatureExtractor(nn.Module):
+#   def __init__(self, input_dim=50, channel_n=16):
+#       super(FeatureExtractor, self).__init__()
+#       self.layer1 = nn.Sequential(
+#           nn.Conv1d(3, channel_n, kernel_size=KERNEL_SIZE, stride=1, padding=2),
+#           nn.BatchNorm1d(channel_n),
+#           nn.ReLU(),
+#           nn.MaxPool1d(kernel_size=2, stride=2))
+#       self.layer2 = nn.Sequential(
+#           nn.Conv1d(channel_n, channel_n, kernel_size=KERNEL_SIZE, stride=1, padding=2),
+#           nn.BatchNorm1d(channel_n),
+#           nn.ReLU(),
+#           nn.MaxPool1d(kernel_size=2, stride=2))
+#       self.layer3 = nn.Sequential(
+#           nn.Conv1d(channel_n, channel_n, kernel_size=KERNEL_SIZE, stride=1, padding=2),
+#           nn.BatchNorm1d(channel_n),
+#           nn.ReLU(),
+#           nn.MaxPool1d(kernel_size=2, stride=2))
+#       self.layer4 = nn.Sequential(
+#           nn.Conv1d(channel_n, channel_n, kernel_size=KERNEL_SIZE, stride=1, padding=2),
+#           nn.BatchNorm1d(channel_n),
+#           nn.ReLU(),
+#           nn.MaxPool1d(kernel_size=2, stride=2))
+	
+#       cnn_layer1_dim = (input_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
+#       pool_layer1_dim = math.floor((cnn_layer1_dim-1*(2-1)-1)/2+1)
+
+#       cnn_layer2_dim = (pool_layer1_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
+#       pool_layer2_dim = math.floor((cnn_layer2_dim-1*(2-1)-1)/2+1)
+      
+#       cnn_layer3_dim = (pool_layer2_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
+#       pool_layer3_dim = math.floor((cnn_layer3_dim-1*(2-1)-1)/2+1)
+      
+#       cnn_layer4_dim = (pool_layer3_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
+#       pool_layer4_dim = math.floor((cnn_layer4_dim-1*(2-1)-1)/2+1)
+
+#       self.feature_out_dim = int(pool_layer4_dim*channel_n)
+# #       self.feature_out_dim = int(pool_layer1_dim*channel_n)
+# #       self.feature_out_dim = int(pool_layer3_dim*channel_n)
+# #       self.feature_out_dim = int(pool_layer2_dim*channel_n)
+#       pytorch_total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
+#       print('FeatureExtractor_total_params:', pytorch_total_params)
+#       print('feature_out_dim:', self.feature_out_dim)
+      
+#   def forward(self, x):
+#     out1 = self.layer1(x.float())
+#     out2 = self.layer2(out1)
+#     out3 = self.layer3(out2)
+#     out4 = self.layer4(out3)
+#     out = out4.reshape(out4.size(0), -1)
+#     return out
+
+
 
 
 
@@ -159,13 +218,21 @@ class ClassClassifier(nn.Module):
       super(ClassClassifier, self).__init__()
       self.fc1 = nn.Linear(input_dim, HIDDEN_DIM)
       self.fc2 = nn.Linear(HIDDEN_DIM, num_classes)
-      self.drop = nn.Dropout(p=0.5)
+#       self.fc1 = nn.Linear(input_dim, int(input_dim/2))
+#       self.fc2 = nn.Linear(int(input_dim/2), num_classes)
+      self.drop = nn.Dropout(p=P_DROPOUT)
       self.relu = nn.ReLU()
       pytorch_total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-      print('ClassClassifier_total_params:', pytorch_total_params)
+#       print('ClassClassifier_total_params:', pytorch_total_params)
     
+#   def forward(self, x):
+#     out1 = self.relu(self.fc1(self.drop(x.float())))
+# #     out1 = self.relu(self.fc1(x.float()))
+#     out2 = self.fc2(out1)
+#     return out2
   def forward(self, x):
-    out1 = self.relu(self.fc1(x.float()))
+    out1 = self.drop(self.relu(self.fc1(x.float())))
+#     out1 = self.relu(self.fc1(x.float()))
     out2 = self.fc2(out1)
     return out2
 
@@ -175,14 +242,23 @@ class DomainClassifier(nn.Module):
       super(DomainClassifier, self).__init__()
       self.fc1 = nn.Linear(input_dim, HIDDEN_DIM)
       self.fc2 = nn.Linear(HIDDEN_DIM, num_classes)
-      self.drop = nn.Dropout(p=0.5)
+#       self.fc1 = nn.Linear(input_dim, int(input_dim/2))
+#       self.fc2 = nn.Linear(int(input_dim/2), num_classes)
+      self.drop = nn.Dropout(p=P_DROPOUT)
       self.relu = nn.ReLU()
       pytorch_total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-      print('DomainClassifier_total_params:', pytorch_total_params)
-      
+#       print('DomainClassifier_total_params:', pytorch_total_params)
+	
+#   def forward(self, x, constant):
+#     out1 = GradReverse.grad_reverse(self.drop(x.float()), constant)
+#     out1 = self.relu(self.fc1(out1))
+# #     out1 = self.relu(self.fc1(out1))
+#     out2 = self.fc2(out1)
+#     return out2 
   def forward(self, x, constant):
     out1 = GradReverse.grad_reverse(x.float(), constant)
-    out1 = self.relu(self.fc1(out1))
+    out1 = self.drop(self.relu(self.fc1(out1)))
+#     out1 = self.relu(self.fc1(out1))
     out2 = self.fc2(out1)
     return out2
 
@@ -191,25 +267,13 @@ class DannModel(nn.Module):
   def __init__(self, device, class_N=2, domain_N=2, channel_n=16, input_dim=10):
     super(DannModel, self).__init__()
     self.feature_extractor = FeatureExtractor(input_dim=input_dim, channel_n=channel_n).to(device).float()
-	
-#     cnn_layer1_dim = (input_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
-#     pool_layer1_dim = math.floor((cnn_layer1_dim-1*(2-1)-1)/2+1)
-
-#     cnn_layer2_dim = (pool_layer1_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
-#     pool_layer2_dim = math.floor((cnn_layer2_dim-1*(2-1)-1)/2+1)
-
-#     cnn_layer3_dim = (pool_layer2_dim+2*2-1*(KERNEL_SIZE-1)-1)+1
-#     pool_layer3_dim = math.floor((cnn_layer3_dim-1*(2-1)-1)/2+1)
-
-#     feature_out_dim = int(pool_layer3_dim*channel_n)
     feature_out_dim = self.feature_extractor.feature_out_dim
 		
     self.class_classfier = ClassClassifier(num_classes=class_N, input_dim=feature_out_dim).to(device).float()
     self.domain_classifier = DomainClassifier(num_classes=domain_N, input_dim=feature_out_dim).to(device).float()
 
     pytorch_total_params = sum(p.numel() for p in self.parameters() if p.requires_grad)
-    print('DannModel_total_params:', pytorch_total_params)
-    
+#     print('DannModel_total_params:', pytorch_total_params)
 
   def forward(self, x):
     feature_out = self.feature_extractor(x)

@@ -98,6 +98,10 @@ def get_data_loader(inputdir, i_CV, batch_size, learning_rate, training_params):
 	  train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
 												batch_size=batch_size, 
 												sampler=train_sampler)
+		
+	  train_loader_eval = torch.utils.data.DataLoader(dataset=train_dataset,
+												batch_size=val_batch_size, 
+												shuffle=False)
 
 	  val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
 												batch_size=val_batch_size, 
@@ -108,139 +112,14 @@ def get_data_loader(inputdir, i_CV, batch_size, learning_rate, training_params):
 	  train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             batch_size=batch_size, 
                                             shuffle=True)
+		
+	  train_loader_eval = torch.utils.data.DataLoader(dataset=train_dataset,
+												batch_size=val_batch_size, 
+												shuffle=False)
+	
 	  val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
                                             batch_size=val_batch_size, 
                                             shuffle=False)
 
-  return train_loader, val_loader
+  return train_loader, val_loader, train_loader_eval
 
-
-# # TBD
-# def get_UMAFall_loader(inputdir, i_CV, batch_size, learning_rate):
-#   print('Working on get_UMAFall_loader...')
-
-# #   val_batch_size = 5000
-#   # val_batch_size = batch_size
-
-#   train_inputdir = inputdir+'CV{}/train'.format(i_CV)
-#   val_inputdir = inputdir+'CV{}/val'.format(i_CV)
-
-#   train_data = data_loader('data', train_inputdir).transpose(2,1,0)[:,:,0:66]
-#   val_data = data_loader('data', val_inputdir).transpose(2,1,0)[:,:,0:66]
-#   # train_data = data_loader('data', train_inputdir).transpose(2,1,0)
-#   # val_data = data_loader('data', val_inputdir).transpose(2,1,0)
-
-#   train_labels = data_loader('labels', train_inputdir)
-#   val_labels = data_loader('labels', val_inputdir)
-
-#   train_i_sub = data_loader('i_sub', train_inputdir)
-#   val_i_sub = data_loader('i_sub', val_inputdir)
-
-#   print('train_data shape:', train_data.shape)
-#   print('val_data shape:', val_data.shape)
-
-#   train_size = train_labels.shape[0]
-#   val_size = val_labels.shape[0]
-#   input_dim = train_data.shape[2]
-
-#   # convert labels from multi-class activities to binary (fall/ADL)
-#   train_labels_binary = ((train_labels==10)|(train_labels==11)|(train_labels==12)).astype(int)
-#   val_labels_binary = ((val_labels==10)|(val_labels==11)|(val_labels==12)).astype(int)
-
-#   train_dataset = FallDataset(train_data, train_labels_binary)
-#   val_dataset = FallDataset(val_data, val_labels_binary)
-#   # data loader
-#   train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-#                                             batch_size=batch_size, 
-#                                             shuffle=True)
-#   val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
-#                                             batch_size=val_batch_size, 
-#                                             shuffle=False)
-
-#   return train_loader, val_loader
-
-# def get_UPFall_loader(inputdir, i_CV, batch_size, learning_rate):
-#   print('Working on get_UPFall_loader...')
-
-# #   val_batch_size = 5000
-#   # val_batch_size = batch_size
-
-#   train_inputdir = inputdir+'CV{}/train'.format(i_CV)
-#   val_inputdir = inputdir+'CV{}/val'.format(i_CV)
-
-#   # train_data = data_loader('data', train_inputdir).transpose(2,1,0)
-#   # val_data = data_loader('data', val_inputdir).transpose(2,1,0)
-#   train_data = data_loader('data', train_inputdir).transpose(2,1,0)[:,:,0:66]
-#   val_data = data_loader('data', val_inputdir).transpose(2,1,0)[:,:,0:66]
-
-#   train_labels = data_loader('labels', train_inputdir)
-#   val_labels = data_loader('labels', val_inputdir)
-
-#   train_i_sub = data_loader('i_sub', train_inputdir)
-#   val_i_sub = data_loader('i_sub', val_inputdir)
-
-#   print('train_data shape:', train_data.shape)
-#   print('val_data shape:', val_data.shape)
-
-#   train_size = train_labels.shape[0]
-#   val_size = val_labels.shape[0]
-#   input_dim = train_data.shape[2]
-
-#   # convert labels from multi-class activities to binary (fall/ADL)
-#   train_labels_binary = ((train_labels==1)|(train_labels==2)|(train_labels==3)|(train_labels==4)|(train_labels==5)).astype(int)
-#   val_labels_binary = ((val_labels==1)|(val_labels==2)|(val_labels==3)|(val_labels==4)|(val_labels==5)).astype(int)
-
-#   train_dataset = FallDataset(train_data, train_labels_binary)
-#   val_dataset = FallDataset(val_data, val_labels_binary)
-#   # data loader
-#   train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-#                                             batch_size=batch_size, 
-#                                             shuffle=True)
-#   val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
-#                                             batch_size=val_batch_size, 
-#                                             shuffle=False)
-
-#   return train_loader, val_loader
-
-# def get_SFDLA_loader(inputdir, i_CV, batch_size, learning_rate):
-#   print('Working on get_SFDLA_loader...')
-
-# #   val_batch_size = 5000
-#   # val_batch_size = batch_size
-
-#   train_inputdir = inputdir+'CV{}/train'.format(i_CV)
-#   val_inputdir = inputdir+'CV{}/val'.format(i_CV)
-
-#   # train_data = data_loader('data', train_inputdir).transpose(2,1,0)
-#   # val_data = data_loader('data', val_inputdir).transpose(2,1,0)
-#   train_data = data_loader('data', train_inputdir).transpose(2,1,0)[:,:,0:66]
-#   val_data = data_loader('data', val_inputdir).transpose(2,1,0)[:,:,0:66]
-
-#   train_labels = data_loader('labels', train_inputdir)
-#   val_labels = data_loader('labels', val_inputdir)
-
-#   train_i_sub = data_loader('i_sub', train_inputdir)
-#   val_i_sub = data_loader('i_sub', val_inputdir)
-
-#   print('train_data shape:', train_data.shape)
-#   print('val_data shape:', val_data.shape)
-
-#   train_size = train_labels.shape[0]
-#   val_size = val_labels.shape[0]
-#   input_dim = train_data.shape[2]
-
-#   # convert labels from multi-class activities to binary (fall/ADL)
-#   train_labels_binary = (train_labels>=900).astype(int)
-#   val_labels_binary = (val_labels>=900).astype(int)
-
-#   train_dataset = FallDataset(train_data, train_labels_binary)
-#   val_dataset = FallDataset(val_data, val_labels_binary)
-#   # data loader
-#   train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-#                                             batch_size=batch_size, 
-#                                             shuffle=True)
-#   val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
-#                                             batch_size=val_batch_size, 
-#                                             shuffle=False)
-
-#   return train_loader, val_loader

@@ -8,7 +8,7 @@
     "channel_n": 4,
     "batch_size": 4,
     "learning_rate": 0.001,
-    "λ": 1,
+    "λ": 1.3,
     "extractor_type": "CNN",
     "dropout": 0.5,
     "hiddenDim_f": 3,

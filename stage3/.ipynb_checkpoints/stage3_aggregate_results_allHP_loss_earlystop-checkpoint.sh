@@ -15,13 +15,10 @@ training_params_file='training_params_list_fixed.json'
 variable_name='HP_name'
 debug_F1='True'
 
-echo '=================================running UMAFall_UPFall_cross_config [resample, weighted] allHP================================='
+echo '=================================running UMAFall_UPFall_cross_config [earlystop at lowest total loss] allHP================================='
 
-# inputdir='../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_weighted'
-# outputdir='../../data_mic/stage3/UMAFall_UPFall_cross_config_diffCV_resample_weighted'
-
-inputdir='../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_weighted_refactor'
-outputdir='../../data_mic/stage3/UMAFall_UPFall_cross_config_diffCV_resample_weighted_refactor'
+inputdir='../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_loss_earlystop'
+outputdir='../../data_mic/stage3/UMAFall_UPFall_cross_config_loss_earlystop'
 mkdir -p $outputdir
 
 python stage3_model_eval_allHP.py \

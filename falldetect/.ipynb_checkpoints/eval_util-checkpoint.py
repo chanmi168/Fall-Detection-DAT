@@ -76,7 +76,7 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
 
 #   metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc']
 #   metric_list = ['src_class_loss', 'src_acc', 'tgt_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc', 'PAD']
-  metric_list = ['class_loss', 'acc', 'sensitivity', 'precision', 'F1', 'PAD']
+  metric_list = ['total_loss', 'class_loss', 'domain_loss', 'acc', 'sensitivity', 'precision', 'F1', 'PAD']
 
   fig = plt.figure(figsize=(5*len(metric_list), 3), dpi=dpi)
 
@@ -86,13 +86,16 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
       ax1.set_xlabel('epoch')
       if metric_name=='PAD':
         ax1.plot(np.arange(num_epochs), PAD_list, color='blue', label='PAD_val')
+      elif metric_name=='total_loss':
+        ax1.plot(np.arange(num_epochs), train_performance_epochs['{}'.format(metric_name)].values, color='blue', label='train')
+        ax1.plot(np.arange(num_epochs), val_performance_epochs['{}'.format(metric_name)].values, color='red', label='val')
       else:
         ax1.plot(np.arange(num_epochs), train_performance_epochs['src_{}'.format(metric_name)].values, color='blue', label='train')
         ax1.plot(np.arange(num_epochs), val_performance_epochs['src_{}'.format(metric_name)].values, color='red', label='val_src')
         ax1.plot(np.arange(num_epochs), val_performance_epochs['tgt_{}'.format(metric_name)].values, color='green', label='val_tgt')
 
-        ax1.axvline(epoch_optimal, linestyle='--', color='gray', alpha=0.7, label='checkpoint')
-        ax1.legend(loc="upper right")
+      ax1.axvline(epoch_optimal, linestyle='--', color='gray', alpha=0.7, label='checkpoint')
+      ax1.legend(loc="upper right")
 		
   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 

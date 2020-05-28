@@ -80,6 +80,11 @@ parser.add_argument('--tasks_list', metavar='tasks_list', help='a list of all ta
                     default='UMAFall_waist_UPFall_belt UPFall_wrist_UMAFall_ankle')
 parser.add_argument('--variable_name', metavar='variable_name', help='key in training_params to be displayed on plot',
                     default='HP_name')
+parser.add_argument('--debug_F1', metavar='debug_F1', help='debug F1',
+                    default='False')
+
+
+
 # parser.add_argument('--src_names', metavar='src_names', help='a list of src_names',
 #                     default='UMAFall_waist_UPFall_belt UPFall_wrist_UMAFall_ankle')
 # parser.add_argument('--tgt_names', metavar='tgt_names', help='a list of tgt_names',
@@ -97,7 +102,8 @@ parser.add_argument('--variable_name', metavar='variable_name', help='key in tra
 #                           '--training_params_file', 'training_params_list_fixed.json',
 # #                           '--tasks_list', 'UMAFall_chest-UPFall_neck UMAFall_wrist-UPFall_wrist UMAFall_waist-UPFall_belt UMAFall_leg-UPFall_rightpocket UMAFall_ankle-UPFall_ankle',
 #                           '--tasks_list', 'UPFall_neck-UMAFall_chest UPFall_wrist-UMAFall_wrist UPFall_belt-UMAFall_waist UPFall_rightpocket-UMAFall_leg UPFall_ankle-UMAFall_ankle',
-#                           '--variable_name', 'HP_name',])
+#                           '--variable_name', 'HP_name',
+#                           '--debug_F1', 'True',])
 
 #                           '--src_names', 'UPFall_neck UPFall_wrist UPFall_belt UPFall_rightpocket UPFall_ankle',
 #                           '--tgt_names', 'UMAFall_chest UMAFall_wrist UMAFall_waist UMAFall_leg UMAFall_ankle'])
@@ -126,6 +132,12 @@ for item in args.tasks_list.split(' '):
 # src_domains = args.src_names.split(' ')
 # tgt_domains = args.tgt_names.split(' ')
 variable_name = args.variable_name
+
+if args.debug_F1=='True':
+    debug_F1 = True
+else:
+    debug_F1 = False
+
 
 inputdir = input_folder + '/'
 outputdir = output_folder + '/'
@@ -239,7 +251,7 @@ for training_params in training_params_list:
     print('{}\t\t{}'.format(training_params['HP_name'], training_params['channel_n']))
 
 
-# In[13]:
+# In[11]:
 
 
 df_task_list = dict( zip(df_metric_keys,[[], [], [], []]))
@@ -305,7 +317,7 @@ for task_item in tasks_list:
 
 
 
-# In[14]:
+# In[12]:
 
 
 color_dict = {'Green': '#3cb44b', 
@@ -350,7 +362,7 @@ colornames = list(color_dict.keys())
 
 
 
-# In[15]:
+# In[13]:
 
 
 # def plot_metrics(task_name, metric_names, HP_name, dict_task_HP, outputdir):
@@ -474,7 +486,7 @@ for task_name, dict_task in dict_task_all.items():
 
 
 
-# In[16]:
+# In[14]:
 
 
 def F1_checker_each(dict_task_HP):
@@ -489,7 +501,7 @@ def F1_checker_each(dict_task_HP):
             print('***      F1 for a CV, a rep computed incorrectly in {}     ***'.format(key))
 
 
-# In[17]:
+# In[15]:
 
 
 def F1_checker_mean(dict_df):
@@ -515,10 +527,10 @@ def F1_checker_mean(dict_df):
 
 
 
-# In[18]:
+# In[16]:
 
 
-debug_F1 = False
+# debug_F1 = True
 
 dict_df_all = {}
 
@@ -531,7 +543,7 @@ for task_name, dict_task in dict_task_all.items():
         dict_task_HP = dict_task[key]
         
         if debug_F1:
-            F1_checker(dict_task_HP)
+            F1_checker_each(dict_task_HP)
 
         for i, metric_name in enumerate(metric_names):
             source_dpt = dict_task_HP['performance_source'][metric_name].values
