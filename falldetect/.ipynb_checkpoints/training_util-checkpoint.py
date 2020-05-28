@@ -32,20 +32,183 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
 
-# λ = 0.31 #ref: DANN paper page 19
-# λ = 1
+λ = 1
 
-def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, λ, training_mode):
+# def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, epoch, training_mode):
+#   dann.train()
+
+#   total_src_class_loss = 0
+#   total_tgt_class_loss = 0
+#   total_src_domain_loss = 0
+#   total_tgt_domain_loss = 0
+
+#   domain_TPTN = 0
+	
+#   src_TP = 0
+#   src_FP = 0
+#   src_TN = 0
+#   src_FN = 0
+	
+#   tgt_TP = 0
+#   tgt_FP = 0
+#   tgt_TN = 0
+#   tgt_FN = 0
+
+#   for i, (sdata, tdata) in enumerate(zip(src_loader, tgt_loader)):
+#     src_data, src_labels = sdata
+#     tgt_data, tgt_labels = tdata
+
+#     src_data = src_data.to(device)
+#     src_labels = src_labels.to(device).long()
+#     tgt_data = tgt_data.to(device)
+#     tgt_labels = tgt_labels.to(device).long()
+
+#     # prepare domain labels
+#     src_domain_labels = torch.zeros(src_data.size()[0]).to(device).long()
+#     tgt_domain_labels = torch.ones(tgt_data.size()[0]).to(device).long()
+
+#     src_feature, src_class_out, src_domain_out = dann(src_data)
+#     tgt_feature, tgt_class_out, tgt_domain_out = dann(tgt_data)
+
+#     # compute the class loss of features
+#     src_class_loss = class_criterion(src_class_out, src_labels)
+#     tgt_class_loss = class_criterion(tgt_class_out, tgt_labels)
+
+#     # make prediction based on logits output class_out
+#     out_sigmoid = torch.sigmoid(src_class_out).data.detach().cpu().numpy()
+#     src_class_pred = np.argmax(out_sigmoid, 1)
+#     out_sigmoid = torch.sigmoid(tgt_class_out).data.detach().cpu().numpy()
+#     tgt_class_pred = np.argmax(out_sigmoid, 1)
+
+
+# # #     if i == 0:
+# # #       print(out_sigmoid.shape)
+# # #       print(tgt_labels, out_sigmoid, tgt_class_pred)
+# # #       sys.exit()
+# #     print(tgt_labels, out_sigmoid[:,1])
+# #     tgt_labels = torch.FloatTensor(out_sigmoid[:,1])
+# #     print(tgt_labels, out_sigmoid[:,1])
+# #     print('\n')
+
+
+#     # make prediction based on logits output domain_out
+#     out_sigmoid = torch.sigmoid(src_domain_out).data.detach().cpu().numpy()
+#     src_domain_pred = np.argmax(out_sigmoid, 1)
+#     out_sigmoid = torch.sigmoid(tgt_domain_out).data.detach().cpu().numpy()
+#     tgt_domain_pred = np.argmax(out_sigmoid, 1)
+
+#     src_domain_loss = domain_criterion(src_domain_out, src_domain_labels)
+#     tgt_domain_loss = domain_criterion(tgt_domain_out, tgt_domain_labels)
+#     domain_loss = src_domain_loss + tgt_domain_loss
+
+#     if training_mode == 'dann':
+#       theta = 1
+#       train_loss = src_class_loss + theta * domain_loss
+#     else:
+#       train_loss = src_class_loss
+	
+	
+#     # Backward and optimize
+#     optimizer.zero_grad()
+#     train_loss.backward()
+#     optimizer.step()
+	
+#     total_src_class_loss += src_class_loss.data.detach().cpu().numpy()
+#     total_tgt_class_loss += tgt_class_loss.data.detach().cpu().numpy()
+#     total_src_domain_loss += src_domain_loss.data.detach().cpu().numpy()
+#     total_tgt_domain_loss += tgt_domain_loss.data.detach().cpu().numpy()
+
+#     domain_TPTN += (src_domain_pred==src_domain_labels.data.detach().cpu().numpy()).sum()
+#     domain_TPTN += (tgt_domain_pred==tgt_domain_labels.data.detach().cpu().numpy()).sum()
+	
+#     src_labels_np = src_labels.data.detach().cpu().numpy()
+#     src_TP += ((src_class_pred==1) & (src_labels_np==1)).sum()
+#     src_FP += ((src_class_pred==1) & (src_labels_np==0)).sum()
+#     src_TN += ((src_class_pred==0) & (src_labels_np==0)).sum()
+#     src_FN += ((src_class_pred==0) & (src_labels_np==1)).sum()
+	
+#     tgt_labels_np = tgt_labels.data.detach().cpu().numpy()
+#     tgt_TP += ((tgt_class_pred==1) & (tgt_labels_np==1)).sum()
+#     tgt_FP += ((tgt_class_pred==1) & (tgt_labels_np==0)).sum()
+#     tgt_TN += ((tgt_class_pred==0) & (tgt_labels_np==0)).sum()
+#     tgt_FN += ((tgt_class_pred==0) & (tgt_labels_np==1)).sum()
+
+# #   DATA_train_loader = src_loader.dataset.labels.numpy()
+# #   print('SRC sampler: label0, label1', i, src_FP+src_TN, src_TP+src_FN)
+# #   print('in SRC train_loader: label0, label1', i, (DATA_train_loader==0).sum(), (DATA_train_loader==1).sum())
+# #   sys.exit()
+
+#   src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
+#   src_class_loss = total_src_class_loss/src_size
+#   src_domain_loss = total_src_domain_loss/src_size
+#   src_acc = (src_TP+src_TN)/src_size
+#   src_sensitivity = src_TP/(src_TP+src_FN)
+#   src_specificity = src_TN/(src_TN+src_FP)
+
+#   src_precision = src_TP/(src_TP+src_FP)
+#   if math.isnan(src_precision):
+#     if src_FP==0:
+#       src_precision=1
+#     else:
+#       src_precision=0
+
+#   src_F1 = 2 * (src_precision * src_sensitivity) / (src_precision + src_sensitivity)
+#   if math.isnan(src_F1):
+#     if src_TP + src_FP + src_FN == 0:
+#       src_F1 = 1
+#     else:
+#       src_F1 = 0
+
+#   tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
+#   tgt_class_loss = total_tgt_class_loss/tgt_size
+#   tgt_domain_loss = total_tgt_domain_loss/tgt_size
+#   tgt_acc = (tgt_TP+tgt_TN)/tgt_size
+#   tgt_sensitivity = tgt_TP/(tgt_TP+tgt_FN)
+#   tgt_specificity = tgt_TN/(tgt_TN+tgt_FP)
+#   tgt_precision = tgt_TP/(tgt_TP+tgt_FP)
+#   if math.isnan(tgt_precision):
+#     if tgt_FP==0:
+#       tgt_precision=1
+#     else:
+#       tgt_precision=0
+
+#   tgt_F1 = 2 * (tgt_precision * tgt_sensitivity) / (tgt_precision + tgt_sensitivity)
+#   if math.isnan(tgt_F1):
+#     if tgt_TP + tgt_FP + tgt_FN == 0:
+#       tgt_F1 = 1
+#     else:
+#       tgt_F1 = 0
+
+#   domain_acc = domain_TPTN/(src_size+tgt_size)
+
+#   performance_dict = {
+#       'src_class_loss': src_class_loss,
+#       'src_domain_loss': src_domain_loss,
+#       'src_acc': src_acc,
+#       'src_sensitivity': src_sensitivity,
+#       'src_precision': src_precision,
+#       'src_specificity': src_specificity,
+#       'src_F1': src_F1,
+#       'tgt_class_loss': tgt_class_loss,
+#       'tgt_domain_loss': tgt_domain_loss,
+#       'tgt_acc': tgt_acc,
+#       'tgt_sensitivity': tgt_sensitivity,
+#       'tgt_precision': tgt_precision,
+#       'tgt_specificity': tgt_specificity,
+#       'tgt_F1': tgt_F1,
+# 	  'domain_acc': domain_acc,
+#   }
+
+#   return performance_dict
+
+
+def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, training_mode):
   dann.train()
 
-  total_train_loss = 0
   total_src_class_loss = 0
   total_tgt_class_loss = 0
   total_src_domain_loss = 0
   total_tgt_domain_loss = 0
-
-  src_size = 0
-  tgt_size = 0
 
   domain_TPTN = 0
 	
@@ -63,9 +226,6 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
     src_data, src_labels = sdata
     tgt_data, tgt_labels = tdata
 
-    src_size += src_labels.size()[0] 
-    tgt_size += tgt_labels.size()[0] 
-	
     src_data = src_data.to(device)
     src_labels = src_labels.to(device).long()
     tgt_data = tgt_data.to(device)
@@ -88,6 +248,17 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
     out_sigmoid = torch.sigmoid(tgt_class_out).data.detach().cpu().numpy()
     tgt_class_pred = np.argmax(out_sigmoid, 1)
 
+
+# #     if i == 0:
+# #       print(out_sigmoid.shape)
+# #       print(tgt_labels, out_sigmoid, tgt_class_pred)
+# #       sys.exit()
+#     print(tgt_labels, out_sigmoid[:,1])
+#     tgt_labels = torch.FloatTensor(out_sigmoid[:,1])
+#     print(tgt_labels, out_sigmoid[:,1])
+#     print('\n')
+
+
     # make prediction based on logits output domain_out
     out_sigmoid = torch.sigmoid(src_domain_out).data.detach().cpu().numpy()
     src_domain_pred = np.argmax(out_sigmoid, 1)
@@ -100,111 +271,109 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
 
     if training_mode == 'dann':
       train_loss = src_class_loss + λ * domain_loss
-
     else:
       train_loss = src_class_loss
-
+	
+	
     # Backward and optimize
     optimizer.zero_grad()
     train_loss.backward()
     optimizer.step()
 	
-    total_src_class_loss += src_class_loss.data.detach().cpu().numpy()
-    total_tgt_class_loss += tgt_class_loss.data.detach().cpu().numpy()
-    total_src_domain_loss += src_domain_loss.data.detach().cpu().numpy()
-    total_tgt_domain_loss += tgt_domain_loss.data.detach().cpu().numpy()
-    total_train_loss += train_loss.data.detach().cpu().numpy()
+#     total_src_class_loss += src_class_loss.data.detach().cpu().numpy()
+#     total_tgt_class_loss += tgt_class_loss.data.detach().cpu().numpy()
+#     total_src_domain_loss += src_domain_loss.data.detach().cpu().numpy()
+#     total_tgt_domain_loss += tgt_domain_loss.data.detach().cpu().numpy()
 
-    domain_TPTN += (src_domain_pred==src_domain_labels.data.detach().cpu().numpy()).sum()
-    domain_TPTN += (tgt_domain_pred==tgt_domain_labels.data.detach().cpu().numpy()).sum()
+#     domain_TPTN += (src_domain_pred==src_domain_labels.data.detach().cpu().numpy()).sum()
+#     domain_TPTN += (tgt_domain_pred==tgt_domain_labels.data.detach().cpu().numpy()).sum()
 	
-    src_labels_np = src_labels.data.detach().cpu().numpy()
-    src_TP += ((src_class_pred==1) & (src_labels_np==1)).sum()
-    src_FP += ((src_class_pred==1) & (src_labels_np==0)).sum()
-    src_TN += ((src_class_pred==0) & (src_labels_np==0)).sum()
-    src_FN += ((src_class_pred==0) & (src_labels_np==1)).sum()
+#     src_labels_np = src_labels.data.detach().cpu().numpy()
+#     src_TP += ((src_class_pred==1) & (src_labels_np==1)).sum()
+#     src_FP += ((src_class_pred==1) & (src_labels_np==0)).sum()
+#     src_TN += ((src_class_pred==0) & (src_labels_np==0)).sum()
+#     src_FN += ((src_class_pred==0) & (src_labels_np==1)).sum()
 	
-    tgt_labels_np = tgt_labels.data.detach().cpu().numpy()
-    tgt_TP += ((tgt_class_pred==1) & (tgt_labels_np==1)).sum()
-    tgt_FP += ((tgt_class_pred==1) & (tgt_labels_np==0)).sum()
-    tgt_TN += ((tgt_class_pred==0) & (tgt_labels_np==0)).sum()
-    tgt_FN += ((tgt_class_pred==0) & (tgt_labels_np==1)).sum()
+#     tgt_labels_np = tgt_labels.data.detach().cpu().numpy()
+#     tgt_TP += ((tgt_class_pred==1) & (tgt_labels_np==1)).sum()
+#     tgt_FP += ((tgt_class_pred==1) & (tgt_labels_np==0)).sum()
+#     tgt_TN += ((tgt_class_pred==0) & (tgt_labels_np==0)).sum()
+#     tgt_FN += ((tgt_class_pred==0) & (tgt_labels_np==1)).sum()
 
-#   DATA_train_loader = src_loader.dataset.labels.numpy()
-#   print('SRC sampler: label0, label1', i, src_FP+src_TN, src_TP+src_FN)
-#   print('in SRC train_loader: label0, label1', i, (DATA_train_loader==0).sum(), (DATA_train_loader==1).sum())
-#   sys.exit()
-
+# #   DATA_train_loader = src_loader.dataset.labels.numpy()
+# #   print('SRC sampler: label0, label1', i, src_FP+src_TN, src_TP+src_FN)
+# #   print('in SRC train_loader: label0, label1', i, (DATA_train_loader==0).sum(), (DATA_train_loader==1).sum())
+# #   sys.exit()
 
 #   src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
-  src_class_loss = total_src_class_loss/src_size
-  src_domain_loss = total_src_domain_loss/src_size
-  src_acc = (src_TP+src_TN)/src_size
-  src_sensitivity = src_TP/(src_TP+src_FN)
-  src_specificity = src_TN/(src_TN+src_FP)
+#   src_class_loss = total_src_class_loss/src_size
+#   src_domain_loss = total_src_domain_loss/src_size
+#   src_acc = (src_TP+src_TN)/src_size
+#   src_sensitivity = src_TP/(src_TP+src_FN)
+#   src_specificity = src_TN/(src_TN+src_FP)
 
-  src_precision = src_TP/(src_TP+src_FP)
-  if math.isnan(src_precision):
-    if src_FP==0:
-      src_precision=1
-    else:
-      src_precision=0
+#   src_precision = src_TP/(src_TP+src_FP)
+#   if math.isnan(src_precision):
+#     if src_FP==0:
+#       src_precision=1
+#     else:
+#       src_precision=0
 
-  src_F1 = 2 * (src_precision * src_sensitivity) / (src_precision + src_sensitivity)
-  if math.isnan(src_F1):
-    if src_TP + src_FP + src_FN == 0:
-      src_F1 = 1
-    else:
-      src_F1 = 0
+#   src_F1 = 2 * (src_precision * src_sensitivity) / (src_precision + src_sensitivity)
+#   if math.isnan(src_F1):
+#     if src_TP + src_FP + src_FN == 0:
+#       src_F1 = 1
+#     else:
+#       src_F1 = 0
 
 #   tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
-  tgt_class_loss = total_tgt_class_loss/tgt_size
-  tgt_domain_loss = total_tgt_domain_loss/tgt_size
-  tgt_acc = (tgt_TP+tgt_TN)/tgt_size
-  tgt_sensitivity = tgt_TP/(tgt_TP+tgt_FN)
-  tgt_specificity = tgt_TN/(tgt_TN+tgt_FP)
-  tgt_precision = tgt_TP/(tgt_TP+tgt_FP)
-  if math.isnan(tgt_precision):
-    if tgt_FP==0:
-      tgt_precision=1
-    else:
-      tgt_precision=0
+#   tgt_class_loss = total_tgt_class_loss/tgt_size
+#   tgt_domain_loss = total_tgt_domain_loss/tgt_size
+#   tgt_acc = (tgt_TP+tgt_TN)/tgt_size
+#   tgt_sensitivity = tgt_TP/(tgt_TP+tgt_FN)
+#   tgt_specificity = tgt_TN/(tgt_TN+tgt_FP)
+#   tgt_precision = tgt_TP/(tgt_TP+tgt_FP)
+#   if math.isnan(tgt_precision):
+#     if tgt_FP==0:
+#       tgt_precision=1
+#     else:
+#       tgt_precision=0
 
-  tgt_F1 = 2 * (tgt_precision * tgt_sensitivity) / (tgt_precision + tgt_sensitivity)
-  if math.isnan(tgt_F1):
-    if tgt_TP + tgt_FP + tgt_FN == 0:
-      tgt_F1 = 1
-    else:
-      tgt_F1 = 0
+#   tgt_F1 = 2 * (tgt_precision * tgt_sensitivity) / (tgt_precision + tgt_sensitivity)
+#   if math.isnan(tgt_F1):
+#     if tgt_TP + tgt_FP + tgt_FN == 0:
+#       tgt_F1 = 1
+#     else:
+#       tgt_F1 = 0
 
-  domain_acc = domain_TPTN/(src_size+tgt_size)
-  total_loss = total_train_loss/(src_size+tgt_size)
+#   domain_acc = domain_TPTN/(src_size+tgt_size)
+
+#   performance_dict = {
+#       'src_class_loss': src_class_loss,
+#       'src_domain_loss': src_domain_loss,
+#       'src_acc': src_acc,
+#       'src_sensitivity': src_sensitivity,
+#       'src_precision': src_precision,
+#       'src_specificity': src_specificity,
+#       'src_F1': src_F1,
+#       'tgt_class_loss': tgt_class_loss,
+#       'tgt_domain_loss': tgt_domain_loss,
+#       'tgt_acc': tgt_acc,
+#       'tgt_sensitivity': tgt_sensitivity,
+#       'tgt_precision': tgt_precision,
+#       'tgt_specificity': tgt_specificity,
+#       'tgt_F1': tgt_F1,
+# 	  'domain_acc': domain_acc,
+#   }
+
+#   return performance_dict
+  return {}
 
 
-  performance_dict = {
-      'src_class_loss': src_class_loss,
-      'src_domain_loss': src_domain_loss,
-      'src_acc': src_acc,
-      'src_sensitivity': src_sensitivity,
-      'src_precision': src_precision,
-      'src_specificity': src_specificity,
-      'src_F1': src_F1,
-      'tgt_class_loss': tgt_class_loss,
-      'tgt_domain_loss': tgt_domain_loss,
-      'tgt_acc': tgt_acc,
-      'tgt_sensitivity': tgt_sensitivity,
-      'tgt_precision': tgt_precision,
-      'tgt_specificity': tgt_specificity,
-      'tgt_F1': tgt_F1,
-	  'domain_acc': domain_acc,
-	  'total_loss': total_loss,
-  }
-
-  return performance_dict
 
 def val_epoch_dann(src_loader, tgt_loader, device, 
                      dann,
-                     class_criterion, domain_criterion, λ, training_mode):
+                     class_criterion, domain_criterion, training_mode):
 
   dann.eval()
 
@@ -217,9 +386,6 @@ def val_epoch_dann(src_loader, tgt_loader, device,
   src_class_TPTN = 0
   tgt_class_TPTN = 0
   domain_TPTN = 0
-
-  src_size = 0
-  tgt_size = 0
 	
   src_TP = 0
   src_FP = 0
@@ -236,8 +402,9 @@ def val_epoch_dann(src_loader, tgt_loader, device,
     src_data, src_labels = sdata
     tgt_data, tgt_labels = tdata
 	
-    src_size += src_labels.size()[0] 
-    tgt_size += tgt_labels.size()[0] 
+#     print(src_data[0:5,0,0])
+#     print(tgt_data[0:5,0,0])
+#     print('\n')
 
     src_data = src_data.to(device)
     src_labels = src_labels.to(device).long()
@@ -280,7 +447,6 @@ def val_epoch_dann(src_loader, tgt_loader, device,
     total_tgt_class_loss += tgt_class_loss.data.detach().cpu().numpy()
     total_src_domain_loss += src_domain_loss.data.detach().cpu().numpy()
     total_tgt_domain_loss += tgt_domain_loss.data.detach().cpu().numpy()
-    total_val_loss += val_loss.data.detach().cpu().numpy()
 
     src_class_TPTN += (src_class_pred==src_labels.data.detach().cpu().numpy()).sum()
     tgt_class_TPTN += (tgt_class_pred==tgt_labels.data.detach().cpu().numpy()).sum()
@@ -300,10 +466,14 @@ def val_epoch_dann(src_loader, tgt_loader, device,
     tgt_FN += ((tgt_class_pred==0) & (tgt_labels_np==1)).sum()
 
 
-#   src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  src_size = src_loader.dataset.labels.detach().cpu().numpy().shape[0]
   src_class_loss = total_src_class_loss/src_size
   src_domain_loss = total_src_domain_loss/src_size
   src_acc = (src_TP+src_TN)/src_size
+	
+# 	if src_TP+src_FN==0:
+	
+	
   src_sensitivity = src_TP/(src_TP+src_FN)
   src_specificity = src_TN/(src_TN+src_FP)
   src_precision = src_TP/(src_TP+src_FP)
@@ -320,7 +490,7 @@ def val_epoch_dann(src_loader, tgt_loader, device,
     else:
       src_F1 = 0
 
-#   tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
+  tgt_size = tgt_loader.dataset.labels.detach().cpu().numpy().shape[0]
   tgt_class_loss = total_tgt_class_loss/tgt_size
   tgt_domain_loss = total_tgt_domain_loss/tgt_size
   tgt_acc = (tgt_TP+tgt_TN)/tgt_size
@@ -341,7 +511,6 @@ def val_epoch_dann(src_loader, tgt_loader, device,
       tgt_F1 = 0
 
   domain_acc = domain_TPTN/(src_size+tgt_size)
-  total_loss = total_val_loss/(src_size+tgt_size)
 
   performance_dict = {
       'src_class_loss': src_class_loss,
@@ -359,7 +528,8 @@ def val_epoch_dann(src_loader, tgt_loader, device,
       'tgt_specificity': tgt_specificity,
       'tgt_F1': tgt_F1,
 	  'domain_acc': domain_acc,
-	  'total_loss': total_loss,
+	  'src_class_pred': src_class_pred,
+	  'tgt_class_pred': tgt_class_pred
   }
 
   return performance_dict
@@ -378,7 +548,6 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
   channel_n = training_params['channel_n']
   batch_size = training_params['batch_size']
   learning_rate = training_params['learning_rate']
-  λ = training_params['λ']
   extractor_type = training_params['extractor_type']
   device = training_params['device']
   show_diagnosis_plt = training_params['show_diagnosis_plt']
@@ -389,7 +558,7 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
 							 'val_src_sensitivity','val_tgt_sensitivity',
 							 'val_src_precision','val_tgt_precision',
 							 'val_src_F1','val_tgt_F1',
-							 'val_domain_acc', 'PAD', 'epoch_optimal', 'total_loss'])
+							 'val_domain_acc', 'PAD', 'epoch_optimal'])
 
 	
   src_dataset_name = src_name.split('_')[0]
@@ -409,7 +578,6 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
     src_train_loader, src_val_loader, src_train_loader_eval = get_data_loader(src_inputdir, i_CV, batch_size, learning_rate, training_params)
     tgt_train_loader, tgt_val_loader, tgt_train_loader_eval = get_data_loader(tgt_inputdir, i_CV, batch_size, learning_rate, training_params)
 
-
     # the model expect the same input dimension for src and tgt data
     src_train_size = src_train_loader.dataset.data.data.detach().cpu().numpy().shape[0]
     src_val_size = src_val_loader.dataset.data.data.detach().cpu().numpy().shape[0]
@@ -426,6 +594,8 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
 
     train_performance_dict_list = list( {} for i in range(num_epochs) )
     val_performance_dict_list = list( {} for i in range(num_epochs) )
+    train_performance_dict_list_reversed = list( {} for i in range(num_epochs) )
+    val_performance_dict_list_reversed = list( {} for i in range(num_epochs) )
     PAD_list = [0] * num_epochs
 
     if extractor_type == 'CNN':
@@ -440,7 +610,7 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
       step_n = training_params['step_n']
       model = CnnLstm(device, class_N=classes_n, channel_n=channel_n, dropout=dropout, hiddenDim_f=hiddenDim_f, hiddenDim_y=hiddenDim_y, hiddenDim_d=hiddenDim_d, win_size=win_size, win_stride=win_stride, step_n=step_n).to(device)
         
-    # model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
+#     model_reversed = copy.deepcopy(model)
     model_name = model.__class__.__name__
     train_size = src_train_size+tgt_train_size
     # loss and optimizer
@@ -456,83 +626,245 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
 #         eps=1e-8,
 #         weight_decay=0,
 #     )
-#     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
-#     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-3)
-#     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.1)
 
-#     if show_diagnosis_plt:
-#       model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-#       model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 
-#     F1_optimal = 0
-#     criterion_optimal = 0
-#     criterion_name = 'src_F1'
-    criterion_optimal = 10000000
-    criterion_name = 'total_loss'
-
+    F1_optimal = 0
     epoch_optimal = -1
+	
+			
+    TGT_train_loader = copy.deepcopy(src_train_loader)
+    TGT_train_loader_eval = copy.deepcopy(src_train_loader_eval)
+    TGT_val_loader =copy.deepcopy(src_val_loader)
 
+    SRC_train_loader = copy.deepcopy(tgt_train_loader)
+    SRC_train_loader_eval = copy.deepcopy(tgt_train_loader_eval)
+    SRC_val_loader = copy.deepcopy(tgt_val_loader)
+
+    REV = True
+	
     for epoch in range(num_epochs):
+#       _ = train_epoch_dann(src_train_loader, tgt_train_loader, device, 
+#                                           model, 
+#                                           class_criterion, domain_criterion, optimizer, epoch, training_mode)
+	
+#       train_performance_dict_list[epoch] = val_epoch_dann(src_train_loader_eval, tgt_train_loader_eval, device, 
+#                                       model,
+#                                       class_criterion, domain_criterion, epoch, training_mode)
+	
+#       val_performance_dict_list[epoch] = val_epoch_dann(src_val_loader, tgt_val_loader, device, 
+#                                       model,
+#                                       class_criterion, domain_criterion, epoch, training_mode)
+
       _ = train_epoch_dann(src_train_loader, tgt_train_loader, device, 
                                           model, 
-                                          class_criterion, domain_criterion, optimizer, λ, training_mode)
+                                          class_criterion, domain_criterion, optimizer, training_mode)
 	
       train_performance_dict_list[epoch] = val_epoch_dann(src_train_loader_eval, tgt_train_loader_eval, device, 
                                       model,
-                                      class_criterion, domain_criterion, λ, training_mode)
+                                      class_criterion, domain_criterion, training_mode)
 	
       val_performance_dict_list[epoch] = val_epoch_dann(src_val_loader, tgt_val_loader, device, 
                                       model,
-                                      class_criterion, domain_criterion, λ, training_mode)
+                                      class_criterion, domain_criterion, training_mode)
 
+		
+		
+		
+		
+		
+#       print('show mod
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ch), i_CV, outputdir)
+		
+#       model_reversed = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
+      model_reversed = copy.deepcopy(model)
+
+      SRC_train_loader.dataset.labels = torch.FloatTensor(train_performance_dict_list[epoch]['tgt_class_pred'])
+      SRC_train_loader_eval.dataset.labels = torch.FloatTensor(train_performance_dict_list[epoch]['tgt_class_pred'])
+      SRC_val_loader.dataset.labels = torch.FloatTensor(val_performance_dict_list[epoch]['tgt_class_pred'])
+	
+      for epoch_reversed in range(5):
+        _ = train_epoch_dann(SRC_train_loader, TGT_train_loader, device, 
+											  model_reversed, 
+											  class_criterion, domain_criterion, optimizer, training_mode)
+
+      train_performance_dict_list_reversed[epoch] = val_epoch_dann(SRC_train_loader_eval, TGT_train_loader_eval, device, 
+										  model_reversed,
+										  class_criterion, domain_criterion, training_mode)
+
+      val_performance_dict_list_reversed[epoch]= val_epoch_dann(SRC_val_loader, TGT_val_loader, device, 
+										  model_reversed,
+										  class_criterion, domain_criterion, training_mode)
+		
+
+#       print('show model output')
+#       model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+
+		
+		
+		
+		
+		
       PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
       PAD_list[epoch] = PAD
 		
 		
       # can only use src_F1 since we assume no tgt labels in our scenario
       if training_mode == 'dann':
-        if math.isnan(val_performance_dict_list[epoch][criterion_name]):
+        if math.isnan(val_performance_dict_list_reversed[epoch]['tgt_F1']):
           continue
-#         if criterion_optimal < val_performance_dict_list[epoch][criterion_name] or epoch < 5:
-        if criterion_optimal > val_performance_dict_list[epoch][criterion_name] or epoch < 5:
-          criterion_optimal = val_performance_dict_list[epoch][criterion_name]
+        if F1_optimal < val_performance_dict_list_reversed[epoch]['tgt_F1'] or epoch < 5:
+          F1_optimal = val_performance_dict_list_reversed[epoch]['tgt_F1']
           epoch_optimal = epoch
           model_optimal = copy.deepcopy(model)
+          model_reversed_optimal = copy.deepcopy(model_reversed)
+          SRC_train_loader_optimal = copy.deepcopy(SRC_train_loader)
+          SRC_val_loader_optimal = copy.deepcopy(SRC_val_loader)
+			
       elif training_mode == 'src':
-        if math.isnan(val_performance_dict_list[epoch][criterion_name]):
+        if math.isnan(val_performance_dict_list_reversed[epoch]['tgt_F1']):
           continue
-#         if criterion_optimal < val_performance_dict_list[epoch][criterion_name] or epoch < 5:
-        if criterion_optimal > val_performance_dict_list[epoch][criterion_name] or epoch < 5:
-          criterion_optimal = val_performance_dict_list[epoch][criterion_name]
+        if F1_optimal < val_performance_dict_list_reversed[epoch]['tgt_F1'] or epoch < 5:
+          F1_optimal = val_performance_dict_list_reversed[epoch]['tgt_F1']
           epoch_optimal = epoch
           model_optimal = copy.deepcopy(model)
+          model_reversed_optimal = copy.deepcopy(model_reversed)
+          SRC_train_loader_optimal = copy.deepcopy(SRC_train_loader)
+          SRC_val_loader_optimal = copy.deepcopy(SRC_val_loader)
 
       elif training_mode == 'tgt':
-        if math.isnan(val_performance_dict_list[epoch][criterion_name]):
+        if math.isnan(val_performance_dict_list_reversed[epoch]['tgt_F1']):
           continue
-#         if criterion_optimal < val_performance_dict_list[epoch][criterion_name] or epoch < 5:
-        if criterion_optimal > val_performance_dict_list[epoch][criterion_name] or epoch < 5:
-          criterion_optimal = val_performance_dict_list[epoch][criterion_name]
+        if F1_optimal < val_performance_dict_list_reversed[epoch]['tgt_F1'] or epoch < 5:
+          F1_optimal = val_performance_dict_list_reversed[epoch]['tgt_F1']
           epoch_optimal = epoch
           model_optimal = copy.deepcopy(model)
+          model_reversed_optimal = copy.deepcopy(model_reversed)
+          SRC_train_loader_optimal = copy.deepcopy(SRC_train_loader)
+          SRC_val_loader_optimal = copy.deepcopy(SRC_val_loader)
 
+
+#       if show_diagnosis_plt:
+#         print('show model output')
+#         model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+#         print('show model_reversed output')
+#         model_output_diagnosis_trainval(model_reversed, SRC_train_loader, TGT_train_loader, SRC_val_loader, TGT_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+
+		
     df_performance.loc[i_CV,['i_CV', 
 							 'val_src_acc','val_tgt_acc',
 							 'val_src_sensitivity','val_tgt_sensitivity',
 							 'val_src_precision','val_tgt_precision',
 							 'val_src_F1','val_tgt_F1',
-							 'val_domain_acc', 'PAD', 'epoch_optimal', 'total_loss']] = [i_CV, 
+							 'val_domain_acc', 'PAD', 'epoch_optimal']] = [i_CV, 
 												   val_performance_dict_list[epoch_optimal]['src_acc'], val_performance_dict_list[epoch_optimal]['tgt_acc'], 
 												   val_performance_dict_list[epoch_optimal]['src_sensitivity'], val_performance_dict_list[epoch_optimal]['tgt_sensitivity'], 
 												   val_performance_dict_list[epoch_optimal]['src_precision'], val_performance_dict_list[epoch_optimal]['tgt_precision'], 
 												   val_performance_dict_list[epoch_optimal]['src_F1'], val_performance_dict_list[epoch_optimal]['tgt_F1'], 
-												   val_performance_dict_list[epoch_optimal]['domain_acc'], PAD_list[epoch_optimal], epoch_optimal, val_performance_dict_list[epoch_optimal]['total_loss']]
+												   val_performance_dict_list[epoch_optimal]['domain_acc'], PAD_list[epoch_optimal], epoch_optimal]
 							 
 	
     if show_diagnosis_plt:
       dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, epoch_optimal, outputdir)
+      dann_learning_diagnosis(num_epochs, train_performance_dict_list_reversed, val_performance_dict_list_reversed, PAD_list, i_CV, epoch_optimal, outputdir)
     
     print('-----------------Exporting pytorch model-----------------')
+    # loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
     if extractor_type == 'CNN':
       loaded_model = DannModel(device, class_N=classes_n, domain_N=2, channel_n=channel_n, input_dim=src_input_dim).to(device).float()
     elif extractor_type == 'CNNLSTM':
@@ -551,8 +883,9 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
     print('-----------------Evaluating trained model-----------------')
     if show_diagnosis_plt:
       model_output_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch_optimal), i_CV, outputdir)
-      model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch_optimal), i_CV, outputdir)
+      model_output_diagnosis_trainval(model_reversed_optimal, SRC_train_loader_optimal, TGT_train_loader, SRC_val_loader_optimal, TGT_val_loader, device, '_epoch{}'.format(epoch_optimal), i_CV, outputdir)
 
+#       model_features_diagnosis_trainval(loaded_model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch_optimal), i_CV, outputdir)
 
   # 5. export model performance as df
   print('---------------Exporting model performance---------------')
@@ -606,7 +939,6 @@ def performance_table(src_name, tgt_name, training_params, i_rep, inputdir, outp
   print('======================  train on source, val on target(source={} to target={})  ======================'.format(src_name, tgt_name))
   print('==========================================================================================================================\n')
   source_outputs = DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'source/rep{}/'.format(i_rep), training_mode='src')
-#   source_outputs = BaselineModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outputdir+'source/rep{}/'.format(i_rep))
 
 
   print('\n==========================================================================================================================')
