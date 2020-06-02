@@ -25,6 +25,7 @@ matplotlib.rc( 'savefig', facecolor = 'white' )
 # matplotlib.rc( 'savefig', transparent=True )
 
 from sklearn.decomposition import PCA
+from sklearn.metrics import f1_score
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -66,7 +67,7 @@ dpi = 80
 #     fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 
 # def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, outputdir):
-def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, epoch_optimal, outputdir):
+def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_performance_dict_list, PAD_list, i_CV, epoch_optimal, metric_list, outputdir):
   train_performance_epochs = pd.DataFrame(train_performance_dict_list)
   val_performance_epochs = pd.DataFrame(val_performance_dict_list)
 
@@ -76,7 +77,7 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
 
 #   metric_list = ['src_class_loss', 'src_class_acc', 'tgt_class_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc']
 #   metric_list = ['src_class_loss', 'src_acc', 'tgt_acc', 'tgt_sensitivity', 'tgt_precision', 'tgt_F1', 'domain_acc', 'PAD']
-  metric_list = ['total_loss', 'class_loss', 'domain_loss', 'acc', 'sensitivity', 'precision', 'F1', 'PAD']
+
 
   fig = plt.figure(figsize=(5*len(metric_list), 3), dpi=dpi)
 
@@ -100,6 +101,8 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
 
 def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name, ax_idx):
+#   metric_name = 'F1'
+
   model.eval()
   src_data = src_loader.dataset.data
   src_labels = src_loader.dataset.labels
@@ -131,7 +134,6 @@ def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name,
   tgt_domain_sigmoid = torch.sigmoid(tgt_domain_out).data.detach().cpu().numpy()
   tgt_domain_pred = np.argmax(tgt_domain_sigmoid, 1)
   data_size = src_class_pred.shape[0]
-#   (src_class_pred==src_labels.data.detach().cpu().numpy()).sum()/data_size
 
   src_domain_labels = np.zeros(src_domain_pred.shape[0])
   tgt_domain_labels = np.ones(tgt_domain_pred.shape[0])
@@ -140,34 +142,35 @@ def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name,
   src_domain_acc = (src_domain_pred==src_domain_labels).sum()/data_size
   tgt_class_acc = (tgt_class_pred==tgt_labels.data.detach().cpu().numpy()).sum()/data_size
   tgt_domain_acc = (tgt_domain_pred==tgt_domain_labels).sum()/data_size
-#   print('acc performance:', src_class_acc, src_domain_acc, tgt_class_acc, tgt_domain_acc)
+
+  src_class_F1 = f1_score(src_labels.data.detach().cpu().numpy(), src_class_pred, zero_division=1)
+#   src_domain_F1 = f1_score(src_domain_labels, src_domain_pred, zero_division=1)
+  tgt_class_F1 = f1_score(tgt_labels.data.detach().cpu().numpy(), tgt_class_pred, zero_division=1)
+#   tgt_domain_F1 = f1_score(tgt_domain_labels, tgt_domain_pred, zero_division=1)
+  
 
   ax1 = fig.add_subplot(4, 2, ax_idx[0])
   ax1.plot(src_class_sigmoid[:,1],'.b', label='src_class_sigmoid', markersize=3)
-  ax1.plot(src_class_sigmoid[:,1].round(),'b', alpha=0.5, label='src_class_decision')
+  ax1.plot(src_class_pred,'b', alpha=0.5, label='src_class_decision')
   ax1.plot(src_labels.data.detach().cpu().numpy(),'r', alpha=0.5, label='src_class_labels')
   # ax1.set_title('src_class_sigmoid (adl=0, fall=1)')
   ax1.legend(loc='upper right')
-  ax1.set_title(col_name, fontsize=20)
-  # ax1.set_ylabel('src_class_sigmoid (adl=0, fall=1)', rotation=0, size='large')
+  ax1.set_title(col_name+'\n(src/tgt F1={:.2f}/{:.2f})'.format(src_class_F1, tgt_class_F1), fontsize=15)
 
   ax2 = fig.add_subplot(4, 2, ax_idx[1])
   ax2.plot(src_domain_sigmoid[:,0],'.b', label='src_domain_sigmoid', markersize=3)
   ax2.plot(src_domain_labels,'r', alpha=0.5, label='src_domain_labels')
-  # ax2.set_title('src_domain_sigmoid (src=0, tgt=1)')
   ax2.legend(loc='upper right')
 
   ax3 = fig.add_subplot(4, 2, ax_idx[2])
   ax3.plot(tgt_class_sigmoid[:,1],'.b', label='tgt_class_sigmoid', markersize=3)
-  ax3.plot(tgt_class_sigmoid[:,1].round(),'b', alpha=0.5, label='tgt_class_decision')
+  ax3.plot(tgt_class_pred,'b', alpha=0.5, label='tgt_class_decision')
   ax3.plot(tgt_labels.data.detach().cpu().numpy(),'r', alpha=0.5, label='tgt_class_labels')
-  # ax3.set_title('tgt_class_sigmoid (adl=0, fall=1)')
   ax3.legend(loc='upper right')
 
   ax4 = fig.add_subplot(4, 2, ax_idx[3])
   ax4.plot(tgt_domain_sigmoid[:,0],'.b', label='tgt_domain_sigmoid', markersize=3)
   ax4.plot(tgt_domain_labels,'r', alpha=0.5, label='tgt_domain_labels')
-  # ax4.set_title('tgt_domain_sigmoid (src=0, tgt=1)')
   ax4.legend(loc='upper right')
 	
 	
@@ -181,7 +184,7 @@ def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, s
       os.makedirs(outputdir)
     print('outputdir for model_output_diagnosis_trainval output:', outputdir)
     fig = plt.figure(figsize=(10, 10), dpi=dpi)
-    _, _ = model_output_diagnosis(model, src_train_loader, tgt_train_loader, device, fig, 'train'+plt_title, ax_idx=[1,3,5,7])
+    src_class_sigmoid, tgt_class_sigmoid = model_output_diagnosis(model, src_train_loader, tgt_train_loader, device, fig, 'train'+plt_title, ax_idx=[1,3,5,7])
     src_class_sigmoid, tgt_class_sigmoid = model_output_diagnosis(model, src_val_loader, tgt_val_loader, device, fig, 'val'+plt_title, ax_idx=[2,4,6,8])
     ax_list = fig.axes
     ax_list[0].set_ylabel('src_class', size='large')
@@ -194,7 +197,16 @@ def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, s
 	
     data_saver(src_class_sigmoid, 'src_class_sigmoid_CV{}'.format(i_CV), outputdir)
     data_saver(tgt_class_sigmoid, 'tgt_class_sigmoid_CV{}'.format(i_CV), outputdir)
-
+    
+#     if aaa == None:
+#       pass
+#     else:
+#     plt.plot(aaa, alpha=0.3)
+#     plt.plot(src_train_loader.dataset.labels.data.numpy()*0.5, 'r', alpha=0.3)
+#     plt.show()
+#     print('diff:', (aaa-src_train_loader.dataset.labels.data.numpy()).sum())
+#     sys.exit()
+    
 def model_features_diagnosis(model, src_loader, tgt_loader, device, ax, col_name):
   model.eval()
   src_data = src_loader.dataset.data

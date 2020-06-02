@@ -95,8 +95,10 @@ def export_perofmance(df_performance, CV_n, outputdir):
   df_performance.loc['mean'] = df_performance.iloc[0:CV_n].mean()
   df_performance.loc['std'] = df_performance.iloc[0:CV_n].std()
   print('show df_performance')
-  display(df_performance)
-  df_performance.to_csv(outputdir+'df_performance.csv')
+
+  with pd.option_context('display.precision', 6):
+    display(df_performance)
+    df_performance.to_csv(outputdir+'df_performance.csv')
 
 ## export model using torch.save and validate saved model
 def export_model(model, loaded_model, outputdir):
