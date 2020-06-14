@@ -21,10 +21,12 @@ import json
 # %matplotlib inline
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib import pyplot
 matplotlib.rc( 'savefig', facecolor = 'white' )
 # matplotlib.rc( 'savefig', transparent=True )
 
 from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -98,6 +100,7 @@ def dann_learning_diagnosis(num_epochs, train_performance_dict_list, val_perform
       ax1.legend(loc="upper right")
 		
   fig.savefig(outputdir+'learning_curve_CV{}'.format(i_CV))
+  pyplot.close(fig)
 
 def model_output_diagnosis(model, src_loader, tgt_loader, device, fig, col_name, ax_idx):
   model.eval()
@@ -191,11 +194,12 @@ def model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, s
     fig.tight_layout()
     plt.show()
     fig.savefig(outputdir+'class_out_diagnosis_CV{}{}'.format(i_CV, plt_title))
-	
+    pyplot.close(fig)
+
     data_saver(src_class_sigmoid, 'src_class_sigmoid_CV{}'.format(i_CV), outputdir)
     data_saver(tgt_class_sigmoid, 'tgt_class_sigmoid_CV{}'.format(i_CV), outputdir)
 
-def model_features_diagnosis(model, src_loader, tgt_loader, device, ax, col_name):
+def model_features_diagnosis(model, src_loader, tgt_loader, device, ax, col_name, DR_mode='PCA'):
   model.eval()
   src_data = src_loader.dataset.data
   src_labels = src_loader.dataset.labels
@@ -222,65 +226,126 @@ def model_features_diagnosis(model, src_loader, tgt_loader, device, ax, col_name
   feature_np = StandardScaler().fit_transform(feature_np) # normalizing the features
   print('show standardize mean and std:', np.mean(feature_np),np.std(feature_np))
 
-  pca_features = PCA(n_components=10)
-  principalComponents_features = pca_features.fit_transform(feature_np)
-  var_pca = np.cumsum(np.round(pca_features.explained_variance_ratio_, decimals=3)*100)
-  print('PCA var:', var_pca)
-  explained_var = var_pca[1]
 
-  ax.set_xlabel('Principal Component - 1',fontsize=12)
-  ax.set_ylabel('Principal Component - 2',fontsize=12)
-  ax.set_title('{} (explained_var: {:.2f}%)'.format(col_name, explained_var),fontsize=15)
-  # ax.set_title('PCA of features extracted by Gf ({})'.format(col_name),fontsize=15)
-  ax.tick_params(axis='both', which='major', labelsize=12)
+  
+  if DR_mode == 'PCA':
+    pca_features = PCA(n_components=10)
+    principalComponents_features = pca_features.fit_transform(feature_np)
+    var_pca = np.cumsum(np.round(pca_features.explained_variance_ratio_, decimals=3)*100)
+    print('PCA var:', var_pca)
+    explained_var = var_pca[1]
 
-  class_ids = [0, 1] # adl, fall
-  domain_ids = [0, 1] # src, tgt
-  colors = ['r', 'g']
-  markers = ['o', 'x']
-  legend_dict = {
-      '00': 'adl_src',
-      '01': 'adl_tgt',
-      '10': 'fall_src',
-      '11': 'fall_tgt',
-  }
+    ax.set_xlabel('Principal Component - 1',fontsize=12)
+    ax.set_ylabel('Principal Component - 2',fontsize=12)
+    ax.set_title('{} (explained_var: {:.2f}%)'.format(col_name, explained_var),fontsize=15)
+    # ax.set_title('PCA of features extracted by Gf ({})'.format(col_name),fontsize=15)
+    ax.tick_params(axis='both', which='major', labelsize=12)
 
-  pt_label = ['']
+    class_ids = [0, 1] # adl, fall
+    domain_ids = [0, 1] # src, tgt
+    colors = ['r', 'g']
+    markers = ['o', 'x']
+    legend_dict = {
+        '00': 'adl_src',
+        '01': 'adl_tgt',
+        '10': 'fall_src',
+        '11': 'fall_tgt',
+    }
 
-  for class_id, marker in zip(class_ids,markers):
-    for domain_id, color in zip(domain_ids,colors):
-      indicesToKeep = np.where((labels_np==class_id) & (domain_np==domain_id))[0]
+    pt_label = ['']
 
-      if class_id == 1:
-        alpha = 0.3
-        ax.scatter(principalComponents_features[indicesToKeep, 0], 
-                    principalComponents_features[indicesToKeep, 1], 
-                    s = 50, marker=marker, c=color, alpha=alpha,
-                  label=legend_dict[str(class_id)+str(domain_id)])
-      else:
-        alpha = 0.3
-        ax.scatter(principalComponents_features[indicesToKeep, 0], 
-                    principalComponents_features[indicesToKeep, 1], 
-                    s = 50, marker=marker, edgecolors=color, facecolors='None', alpha=alpha,
-                  label=legend_dict[str(class_id)+str(domain_id)])
+    for class_id, marker in zip(class_ids,markers):
+      for domain_id, color in zip(domain_ids,colors):
+        indicesToKeep = np.where((labels_np==class_id) & (domain_np==domain_id))[0]
 
-  ax.legend(loc='upper right', prop={'size': 15})
+        if class_id == 1:
+          alpha = 0.3
+          ax.scatter(principalComponents_features[indicesToKeep, 0], 
+                      principalComponents_features[indicesToKeep, 1], 
+                      s = 50, marker=marker, c=color, alpha=alpha,
+                    label=legend_dict[str(class_id)+str(domain_id)])
+        else:
+          alpha = 0.3
+          ax.scatter(principalComponents_features[indicesToKeep, 0], 
+                      principalComponents_features[indicesToKeep, 1], 
+                      s = 50, marker=marker, edgecolors=color, facecolors='None', alpha=alpha,
+                    label=legend_dict[str(class_id)+str(domain_id)])
+
+    ax.legend(loc='upper right', prop={'size': 15})
+    
+  elif DR_mode == 'tSNE':
+#       pca_features = PCA(n_components=10)
+#       principalComponents_features = pca_features.fit_transform(feature_np)
+    RANDOM_STATE = 0
+    tsne = TSNE(n_components=2, perplexity=30, random_state=RANDOM_STATE)
+    tsne_features = tsne.fit_transform(feature_np)
+
+    print(feature_np.shape, tsne_features.shape)
+
+#       var_pca = np.cumsum(np.round(pca_features.explained_variance_ratio_, decimals=3)*100)
+#       print('PCA var:', var_pca)
+#       explained_var = var_pca[1]
+
+    ax.set_xlabel('Principal Component - 1',fontsize=12)
+    ax.set_ylabel('Principal Component - 2',fontsize=12)
+#       ax.set_title('{} (explained_var: {:.2f}%)'.format(col_name, explained_var),fontsize=15)
+    ax.set_title('{}'.format(col_name),fontsize=15)
+    # ax.set_title('PCA of features extracted by Gf ({})'.format(col_name),fontsize=15)
+    ax.tick_params(axis='both', which='major', labelsize=12)
+
+    class_ids = [0, 1] # adl, fall
+    domain_ids = [0, 1] # src, tgt
+    colors = ['r', 'g']
+    markers = ['o', 'x']
+    legend_dict = {
+        '00': 'adl_src',
+        '01': 'adl_tgt',
+        '10': 'fall_src',
+        '11': 'fall_tgt',
+    }
+
+    pt_label = ['']
+
+    for class_id, marker in zip(class_ids,markers):
+      for domain_id, color in zip(domain_ids,colors):
+        indicesToKeep = np.where((labels_np==class_id) & (domain_np==domain_id))[0]
+
+        if class_id == 1:
+          alpha = 0.3
+          ax.scatter(tsne_features[indicesToKeep, 0], 
+                      tsne_features[indicesToKeep, 1], 
+                      s = 50, marker=marker, c=color, alpha=alpha,
+                    label=legend_dict[str(class_id)+str(domain_id)])
+        else:
+          alpha = 0.3
+          ax.scatter(tsne_features[indicesToKeep, 0], 
+                      tsne_features[indicesToKeep, 1], 
+                      s = 50, marker=marker, edgecolors=color, facecolors='None', alpha=alpha,
+                    label=legend_dict[str(class_id)+str(domain_id)])
+
+    ax.legend(loc='upper right', prop={'size': 15})
 
 
 def model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, plt_title, i_CV, outputdir):
+#     DR_mode = 'PCA'
+    DR_mode = 'tSNE'
     model.eval()
     if not os.path.exists(outputdir):
       os.makedirs(outputdir)
     print('outputdir for model_features_diagnosis_trainval output:', outputdir)
     fig = plt.figure(figsize=(13, 5), dpi=dpi)
-    fig.suptitle('PCA of features extracted by Gf', fontsize=18)
+    fig.suptitle('{} of features extracted by Gf'.format(DR_mode), fontsize=18)
     ax1 = fig.add_subplot(1, 2, 1)
     ax2 = fig.add_subplot(1, 2, 2)
-    model_features_diagnosis(model, src_train_loader, tgt_train_loader, device, ax1, 'train'+plt_title)
-    model_features_diagnosis(model, src_val_loader, tgt_val_loader, device, ax2, 'val'+plt_title)
-    # fig.tight_layout()
+#     model_features_diagnosis(model, src_train_loader, tgt_train_loader, device, ax1, 'train'+plt_title)
+#     model_features_diagnosis(model, src_val_loader, tgt_val_loader, device, ax2, 'val'+plt_title)
+
+    model_features_diagnosis(model, src_train_loader, tgt_train_loader, device, ax1, 'train'+plt_title, DR_mode=DR_mode)
+    model_features_diagnosis(model, src_val_loader, tgt_val_loader, device, ax2, 'val'+plt_title, DR_mode=DR_mode)
+
     plt.show()
     fig.savefig(outputdir+'feature_diagnosis_CV{}{}'.format(i_CV, plt_title))
+    pyplot.close(fig)
 
 
 def get_mean(mean_std):

@@ -23,10 +23,11 @@ import numpy as np
 import copy
 import pandas as pd
 pd.set_option('display.max_columns', 500)
-pd.options.display.float_format = "{:,.3f}".format
+pd.options.display.float_format = "{:,.6f}".format
 
 from tqdm import tqdm_notebook as tqdm
 from IPython.display import display
+from PIL import Image
 import os
 import sys
 sys.path.append('/content/drive/My Drive/中研院/repo/')
@@ -53,6 +54,7 @@ import argparse
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from matplotlib import pyplot
 matplotlib.rc( 'savefig', facecolor = 'white' )
 
 from sklearn.decomposition import PCA
@@ -97,11 +99,14 @@ parser.add_argument('--debug_F1', metavar='debug_F1', help='debug F1',
 
 
 # args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_WithoutNormal_18hz_5fold_UPFall_UMAFall_cross-config_diffCV',
-# args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_weighted_refactor',
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_diffCV_earlystop',
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage2/test',
+# args = parser.parse_args(['--input_folder', '../../data_mic/stage2/modeloutput_18hz_5fold_UPFall_UMAFall_cross-config_HPsearch',
 #                           '--output_folder', '../../data_mic/stage3/test',
-#                           '--training_params_file', 'training_params_list_fixed.json',
+# #                           '--training_params_file', 'training_params_list_fixed.json',
+#                           '--training_params_file', 'training_params_list_HPsearch.json',
 # #                           '--tasks_list', 'UMAFall_chest-UPFall_neck UMAFall_wrist-UPFall_wrist UMAFall_waist-UPFall_belt UMAFall_leg-UPFall_rightpocket UMAFall_ankle-UPFall_ankle',
-#                           '--tasks_list', 'UPFall_neck-UMAFall_chest UPFall_wrist-UMAFall_wrist UPFall_belt-UMAFall_waist UPFall_rightpocket-UMAFall_leg UPFall_ankle-UMAFall_ankle',
+#                           '--tasks_list', 'UMAFall_chest-UPFall_neck UMAFall_leg-UPFall_rightpocket',
 #                           '--variable_name', 'HP_name',
 #                           '--debug_F1', 'True',])
 
@@ -239,6 +244,8 @@ dict_task_name_list = []
 for training_params in training_params_list:
 #     dict_task_name_list.append('N_ch={}'.format(training_params['channel_n']))
     dict_task_name_list.append(training_params['HP_name'])
+    training_params['rep_n'] = 5
+    training_params['CV_n'] = 5
 
 dict_task_name_list
 
@@ -249,6 +256,18 @@ dict_task_name_list
 print('HP_name\t\tchannel_n')
 for training_params in training_params_list:
     print('{}\t\t{}'.format(training_params['HP_name'], training_params['channel_n']))
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
 
 
 # In[11]:
@@ -262,62 +281,71 @@ for task_item in tasks_list:
     (src_name, tgt_name) = task_item
     print(task_item)
     
-    dict_task = dict( zip( dict_task_name_list,[{},{},{},{},{},{}] ) )
+    dict_list = []
+    for _ in range(len(dict_task_name_list)):
+        dict_list.append({}) 
+    
+    dict_task = dict( zip( dict_task_name_list,dict_list ) )
 
-    training_type = 'source'
-    for training_params in training_params_list:
-        df_list = []
-        for i_rep in range(training_params['rep_n']):
-            df_inputdir = inputdir+src_name+'_'+tgt_name+'/{}/{}/rep{}/df_performance.csv'.format(training_params['HP_name'],training_type,i_rep)
-            df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_tgt_acc','val_tgt_sensitivity','val_tgt_precision','val_tgt_F1','PAD']]
-            df = df.rename(columns={'val_tgt_acc':'acc','val_tgt_sensitivity':'sensitivity','val_tgt_precision':'precision','val_tgt_F1':'F1'})
-            df_list.append(df)
+    try:
+        training_type = 'source'
+        for training_params in training_params_list:
+            df_list = []
+            for i_rep in range(training_params['rep_n']):
+                df_inputdir = inputdir+src_name+'_'+tgt_name+'/{}/{}/rep{}/df_performance.csv'.format(training_params['HP_name'],training_type,i_rep)
+                df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_tgt_acc','val_tgt_sensitivity','val_tgt_precision','val_tgt_F1','PAD','total_loss']]
+                df = df.rename(columns={'val_tgt_acc':'acc','val_tgt_sensitivity':'sensitivity','val_tgt_precision':'precision','val_tgt_F1':'F1','total_loss':'loss'})
+                df_list.append(df)
+
+            dict_task[training_params['HP_name']]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
+
+        training_type = 'dann'
+        for training_params in training_params_list:
+            df_list = []
+            for i_rep in range(training_params['rep_n']):
+                df_inputdir = inputdir+src_name+'_'+tgt_name+'/{}/{}/rep{}/df_performance.csv'.format(training_params['HP_name'],training_type,i_rep)
+                df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_tgt_acc','val_tgt_sensitivity','val_tgt_precision','val_tgt_F1','PAD','total_loss']]
+                df = df.rename(columns={'val_tgt_acc':'acc','val_tgt_sensitivity':'sensitivity','val_tgt_precision':'precision','val_tgt_F1':'F1','total_loss':'loss'})
+                df_list.append(df)
+
+            dict_task[training_params['HP_name']]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
+
+        training_type = 'target'
+        for training_params in training_params_list:
+            df_list = []
+            for i_rep in range(training_params['rep_n']):
+                df_inputdir = inputdir+src_name+'_'+tgt_name+'/{}/{}/rep{}/df_performance.csv'.format(training_params['HP_name'],training_type,i_rep)
+                df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_src_acc','val_src_sensitivity','val_src_precision','val_src_F1','PAD','total_loss']]
+                df = df.rename(columns={'val_src_acc':'acc','val_src_sensitivity':'sensitivity','val_src_precision':'precision','val_src_F1':'F1','total_loss':'loss'})
+                df_list.append(df)
+
+            dict_task[training_params['HP_name']]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
+
+        dict_task_all[src_name+'_'+tgt_name] = dict_task
         
-#         dict_task['N_ch={}'.format(training_params['channel_n'])]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
-        dict_task[training_params['HP_name']]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
-
-    training_type = 'dann'
-    for training_params in training_params_list:
-        df_list = []
-        for i_rep in range(training_params['rep_n']):
-            df_inputdir = inputdir+src_name+'_'+tgt_name+'/{}/{}/rep{}/df_performance.csv'.format(training_params['HP_name'],training_type,i_rep)
-            df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_tgt_acc','val_tgt_sensitivity','val_tgt_precision','val_tgt_F1','PAD']]
-#             df = df.rename(columns={'val_tgt_class_acc':'acc','val_tgt_class_sensitivity':'sensitivity','val_tgt_class_precision':'precision','val_tgt_class_F1':'F1'})
-            df = df.rename(columns={'val_tgt_acc':'acc','val_tgt_sensitivity':'sensitivity','val_tgt_precision':'precision','val_tgt_F1':'F1'})
-            df_list.append(df)
-
-#         dict_task['N_ch={}'.format(training_params['channel_n'])]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
-        dict_task[training_params['HP_name']]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
-
-
-    training_type = 'target'
-    for training_params in training_params_list:
-        df_list = []
-        for i_rep in range(training_params['rep_n']):
-            df_inputdir = inputdir+src_name+'_'+tgt_name+'/{}/{}/rep{}/df_performance.csv'.format(training_params['HP_name'],training_type,i_rep)
-            df = pd.read_csv(df_inputdir, index_col=0).iloc[0:training_params['CV_n']][['val_src_acc','val_src_sensitivity','val_src_precision','val_src_F1','PAD']]
-            df = df.rename(columns={'val_src_acc':'acc','val_src_sensitivity':'sensitivity','val_src_precision':'precision','val_src_F1':'F1'})
-            df_list.append(df)
-
-#         dict_task['N_ch={}'.format(training_params['channel_n'])]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
-        dict_task[training_params['HP_name']]['performance_{}'.format(training_type)] = pd.concat(df_list,ignore_index=True)
-
-    dict_task_all[src_name+'_'+tgt_name] = dict_task        
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
+    except:
+        print("Oops!", sys.exc_info()[0], "occurred.")
 
 
 # In[12]:
+
+
+dict_task_all.keys()
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[13]:
 
 
 color_dict = {'Green': '#3cb44b', 
@@ -356,17 +384,45 @@ colornames = list(color_dict.keys())
 
 
 
+# In[14]:
+
+
+def aggregate_plots(fig_dir_list):
+    col_n = 8
+
+    images = [Image.open(x) for x in fig_dir_list]
+    widths, heights = zip(*(i.size for i in images))
+
+    total_width = max(widths)*col_n
+    total_height = max(heights)*math.ceil(len(images)/col_n)
+    # max_height = max(heights)
+
+    # new_im = Image.new('RGB', (total_width, max_height))
+    fig_agg = Image.new('RGB', (total_width, total_height), (255, 255, 255, 0))
+
+    x_offset = 0
+    for i, im in enumerate(images):
+        x_offset = i%col_n
+        y_offset = math.floor(i/col_n)
+        fig_agg.paste(im, (x_offset*im.size[0],y_offset*im.size[1]))
+        
+    fig_agg.save(fig_dir_list[0].split('scatter')[0]+'HPsearch_agg.png')
+
+
 # In[ ]:
 
 
 
 
 
-# In[13]:
+# In[16]:
 
 
-# def plot_metrics(task_name, metric_names, HP_name, dict_task_HP, outputdir):
-def plot_metrics(task_name, metric_names, key, dict_task, variable_name, training_params_list, outputdir):
+# optimal_metric = 'F1'
+optimal_metric = 'loss'
+display_metric = ['F1']
+
+def plot_metrics(task_name, metric_names, key, dict_task, variable_name, training_params_list, outputdir, plt_optimal=False):
     fontsize_label = {
         'subtitle': 20,
         'axtitle': 17,
@@ -378,28 +434,31 @@ def plot_metrics(task_name, metric_names, key, dict_task, variable_name, trainin
     tgt_color = 'Green'
     
     dict_task_HP = dict_task[key]
+    variable_value = next(training_params for training_params in training_params_list if training_params['HP_name'] == key)[variable_name]
+    
     fig = plt.figure(figsize=(len(metric_names)*5, 5), dpi=100+len(metric_names)*5)
-#     fig.suptitle('{} ({})'.format(task_name,key), fontsize=23, y=1.06)
+    fig.suptitle('{}\n({}={})'.format(task_name,variable_name,variable_value), fontsize=fontsize_label['subtitle'], y=1.12)
 
-    channel_n = next(training_params for training_params in training_params_list if training_params['HP_name'] == key)[variable_name]
-    fig.suptitle('{}\n({}={})'.format(task_name,variable_name,channel_n), fontsize=fontsize_label['subtitle'], y=1.12)
-
+    dann_mean_optimal_metric = dict_task_HP['performance_dann'][optimal_metric].values.mean()
 
     for i, metric_name in enumerate(metric_names):
         source_dpt = dict_task_HP['performance_source'][metric_name].values
         dann_dpt = dict_task_HP['performance_dann'][metric_name].values
+#         display(dict_task_HP['performance_dann'])
+#         sys.exit()
         target_dpt = dict_task_HP['performance_target'][metric_name].values
 
-#         ax = fig.add_subplot(2, len(metric_names), i+1)
         ax = fig.add_subplot(1, len(metric_names), i+1)
         ax.scatter(source_dpt, dann_dpt, s=40, marker='o', alpha=0.5, c=color_dict[dann_color])
-#         ax.set_title('{}({:+.4f})'.format(metric_name,np.nanmean(dann_dpt)-np.nanmean(source_dpt)), fontsize=fontsize_label['axtitle'])
-        ax.set_xlabel('source({:.4f}±{:.4f})'.format(np.nanmean(source_dpt),np.nanstd(source_dpt)), fontsize=fontsize_label['xytitle'])
-        ax.set_ylabel('DANN({:.4f}±{:.4f})'.format(np.nanmean(dann_dpt),np.nanstd(dann_dpt)), fontsize=fontsize_label['xytitle'], c=color_dict[dann_color])
+#         ax.set_xlabel('source({:.4f}±{:.4f})'.format(np.nanmean(source_dpt),np.nanstd(source_dpt)), fontsize=fontsize_label['xytitle'])
+#         ax.set_ylabel('DANN({:.4f}±{:.4f})'.format(np.nanmean(dann_dpt),np.nanstd(dann_dpt)), fontsize=fontsize_label['xytitle'], c=color_dict[dann_color])
+        ax.set_xlabel('source({:.4f}±{:.4f})'.format(np.mean(source_dpt),np.std(source_dpt)), fontsize=fontsize_label['xytitle'])
+        ax.set_ylabel('DANN({:.4f}±{:.4f})'.format(np.mean(dann_dpt),np.std(dann_dpt)), fontsize=fontsize_label['xytitle'], c=color_dict[dann_color])
 
         ax_r = ax.twinx()  # instantiate a second axes that shares the same x-axis
         ax_r.scatter(source_dpt, target_dpt, s=40, marker='o', alpha=0.5, c=color_dict[tgt_color])
-        ax_r.set_ylabel('target({:.4f}±{:.4f})'.format(np.nanmean(target_dpt),np.nanstd(target_dpt)), fontsize=fontsize_label['xytitle'], c=color_dict[tgt_color]) 
+#         ax_r.set_ylabel('target({:.4f}±{:.4f})'.format(np.nanmean(target_dpt),np.nanstd(target_dpt)), fontsize=fontsize_label['xytitle'], c=color_dict[tgt_color]) 
+        ax_r.set_ylabel('target({:.4f}±{:.4f})'.format(np.mean(target_dpt),np.std(target_dpt)), fontsize=fontsize_label['xytitle'], c=color_dict[tgt_color]) 
 
         if metric_name == 'PAD':
             ax_xlim = ax.get_xlim()
@@ -425,41 +484,42 @@ def plot_metrics(task_name, metric_names, key, dict_task, variable_name, trainin
             ax.annotate(i, (source_dpt[i], dann_dpt[i]),alpha=0.9,fontsize=fontsize_label['annotate'], c=color_dict[dann_color])
             ax_r.annotate(i, (source_dpt[i], target_dpt[i]),alpha=0.9,fontsize=fontsize_label['annotate'], c=color_dict[tgt_color])
 
-        ax.set_title('{}({:+.4f} / {:+.4f})'.format(metric_name,np.nanmean(dann_dpt)-np.nanmean(source_dpt),np.nanmean(target_dpt)-np.nanmean(source_dpt)), fontsize=fontsize_label['axtitle'])
+#         ax.set_title('{}({:+.4f} / {:+.4f})'.format(metric_name,np.nanmean(dann_dpt)-np.nanmean(source_dpt),np.nanmean(target_dpt)-np.nanmean(source_dpt)), fontsize=fontsize_label['axtitle'])
+        ax.set_title('{}({:+.4f} / {:+.4f})'.format(metric_name,np.mean(dann_dpt)-np.mean(source_dpt),np.mean(target_dpt)-np.mean(source_dpt)), fontsize=fontsize_label['axtitle'])
 
-#     for i, metric_name in enumerate(metric_names):
-#         source_dpt = dict_task_HP['performance_source'][metric_name].values
-#         dann_dpt = dict_task_HP['performance_dann'][metric_name].values
-#         target_dpt = dict_task_HP['performance_target'][metric_name].values
 
-#         ax = fig.add_subplot(2, len(metric_names), i+len(metric_names)+1)
-#         ax.scatter(source_dpt, target_dpt, s=40, marker='o', alpha=0.6)
-#         ax_xlim = ax.get_xlim()
-#         ax_ylim = ax.get_ylim()
-#         ax.plot([0, 1], [0, 1], c=".3", linewidth=1, alpha=0.4)
-#         ax.set_title('{}({:+.4f})'.format(metric_name,np.nanmean(target_dpt)-np.nanmean(source_dpt)), fontsize=fontsize_label['axtitle'])
-#         ax.set_xlabel('source({:.4f}±{:.4f})'.format(np.nanmean(source_dpt),np.nanstd(source_dpt)), fontsize=fontsize_label['xytitle'])
-#         ax.set_ylabel('target({:.4f}±{:.4f})'.format(np.nanmean(target_dpt),np.nanstd(target_dpt)), fontsize=fontsize_label['xytitle']) 
-
-# #         ax.set_xlim(min(ax_xlim[0], ax_ylim[0]), max(ax_xlim[1], ax_ylim[1]))
-# #         ax.set_ylim(min(ax_xlim[0], ax_ylim[0]), max(ax_xlim[1], ax_ylim[1]))
-#         ax.set_xlim(0,1)
-#         ax.set_ylim(0,1)
-        
-#         for i in range(source_dpt.shape[0]):
-#             ax.annotate(i, (source_dpt[i], target_dpt[i]),alpha=0.7,fontsize=fontsize_label['annotate'])
-        
     fig.tight_layout()
-    fig_dir = outputdir+task_name
-    if not os.path.exists(fig_dir):
-        os.makedirs(fig_dir)
-    fig.savefig(fig_dir+'/scatter_{}.png'.format(key), bbox_inches = "tight")
+    fig_folder = outputdir+task_name
+    if not os.path.exists(fig_folder):
+        os.makedirs(fig_folder)
+    if plt_optimal:
+        fig_dir = fig_folder+'/scatter_{}_optimal.png'.format(key)
+    else:
+        fig_dir = fig_folder+'/scatter_{}.png'.format(key)
+
+    fig.savefig(fig_dir, bbox_inches = "tight")
+    pyplot.close(fig)
+
+    return dann_mean_optimal_metric, fig_dir
 
 
 for task_name, dict_task in dict_task_all.items():
+    if optimal_metric == 'loss':
+        dann_mean_optimal = 100000
+    elif optimal_metric == 'F1':
+        dann_mean_optimal = 0
+    fig_dir_list = []
     for key in dict_task.keys():
-        plot_metrics(task_name, ['F1'], key, dict_task, variable_name, training_params_list, outputdir)
-#         sys.exit()
+        dann_mean, fig_dir = plot_metrics(task_name, display_metric, key, dict_task, variable_name, training_params_list, outputdir)
+        if (optimal_metric=='loss' and dann_mean_optimal>dann_mean) or (optimal_metric=='F1' and dann_mean_optimal<dann_mean): # find the lowest loss
+            dann_mean_optimal = dann_mean
+            key_optimal = key
+        fig_dir_list.append(fig_dir)
+
+    _, fig_dir = plot_metrics(task_name, display_metric, key_optimal, dict_task, variable_name, training_params_list, outputdir, plt_optimal=True)
+    fig_dir_list.append(fig_dir)
+
+    aggregate_plots(fig_dir_list)
 
 
 # In[ ]:
@@ -486,7 +546,19 @@ for task_name, dict_task in dict_task_all.items():
 
 
 
-# In[14]:
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[17]:
 
 
 def F1_checker_each(dict_task_HP):
@@ -496,12 +568,16 @@ def F1_checker_each(dict_task_HP):
         arr_F1 = dict_task_HP[key]['F1'].values
 
         test_F1 = 2*(arr_sens*arr_prec)/(arr_sens+arr_prec)
-
+        print('arr_sens:', arr_sens)
+        print('arr_prec:', arr_prec)
+        print('arr_F1:', arr_F1)
+        print('test_F1:', test_F1)
+#         sys.exit()
         if np.nansum(np.abs(test_F1-arr_F1)) > 0.00001:
             print('***      F1 for a CV, a rep computed incorrectly in {}     ***'.format(key))
 
 
-# In[15]:
+# In[18]:
 
 
 def F1_checker_mean(dict_df):
@@ -527,7 +603,7 @@ def F1_checker_mean(dict_df):
 
 
 
-# In[16]:
+# In[19]:
 
 
 # debug_F1 = True
@@ -573,12 +649,6 @@ for task_name, dict_task in dict_task_all.items():
 
     dict_df_all[task_name] = dict_df.copy()
     
-
-
-# In[ ]:
-
-
-
 
 
 # In[ ]:

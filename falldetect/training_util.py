@@ -460,9 +460,9 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
 #     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-3)
 #     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=0.1)
 
-#     if show_diagnosis_plt:
-#       model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
-#       model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+    if show_diagnosis_plt:
+      model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
+      model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(0), i_CV, outputdir)
 
 #     F1_optimal = 0
 #     criterion_optimal = 0
@@ -487,6 +487,10 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
 
       PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
       PAD_list[epoch] = PAD
+      
+#       if show_diagnosis_plt:
+#         model_output_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
+#         model_features_diagnosis_trainval(model, src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, device, '_epoch{}'.format(epoch), i_CV, outputdir)
 		
 		
       # can only use src_F1 since we assume no tgt labels in our scenario
