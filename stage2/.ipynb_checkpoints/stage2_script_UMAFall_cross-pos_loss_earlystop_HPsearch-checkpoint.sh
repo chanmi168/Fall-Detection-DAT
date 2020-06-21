@@ -26,7 +26,9 @@ mkdir -p $outputdir
 # # red
 # tasks_list='UMAFall_chest-UMAFall_ankle UMAFall_wrist-UMAFall_ankle UMAFall_waist-UMAFall_ankle UMAFall_ankle-UMAFall_chest UMAFall_ankle-UMAFall_wrist UMAFall_ankle-UMAFall_waist'
 # orange
-tasks_list='UMAFall_chest-UMAFall_wrist UMAFall_wrist-UMAFall_chest UMAFall_wrist-UMAFall_waist UMAFall_waist-UMAFall_chest UMAFall_waist-UMAFall_wrist'
+# tasks_list='UMAFall_chest-UMAFall_wrist UMAFall_wrist-UMAFall_chest UMAFall_wrist-UMAFall_waist UMAFall_waist-UMAFall_chest UMAFall_waist-UMAFall_wrist'
+# the rest
+tasks_list='UMAFall_chest-UMAFall_waist'
 
 echo '=================================running stage 2 [early stop at lowest total loss for each pos combination]================================='
 

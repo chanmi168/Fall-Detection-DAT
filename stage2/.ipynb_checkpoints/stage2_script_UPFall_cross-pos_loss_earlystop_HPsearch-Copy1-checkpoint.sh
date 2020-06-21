@@ -26,7 +26,11 @@ mkdir -p $outputdir
 # orange
 # tasks_list='UPFall_neck-UPFall_belt UPFall_neck_UPFall_rightpocket UPFall_wrist-UPFall_rightpocket UPFall_ankle-UPFall_rightpocket'
 # the rest
-tasks_list='UPFall_neck-UPFall_wrist UPFall_wrist-UPFall_neck UPFall_wrist-UPFall_belt UPFall_belt-UPFall_neck UPFall_belt-UPFall_wrist UPFall_belt-UPFall_rightpocket UPFall_belt-UPFall_ankle UPFall_rightpocket-UPFall_neck UPFall_rightpocket-UPFall_wrist UPFall_rightpocket-UPFall_belt UPFall_rightpocket-UPFall_ankle UPFall_ankle-UPFall_belt'
+# tasks_list='UPFall_neck-UPFall_wrist UPFall_wrist-UPFall_neck UPFall_wrist-UPFall_belt UPFall_belt-UPFall_neck UPFall_belt-UPFall_wrist UPFall_belt-UPFall_rightpocket UPFall_belt-UPFall_ankle UPFall_rightpocket-UPFall_neck UPFall_rightpocket-UPFall_wrist UPFall_rightpocket-UPFall_belt UPFall_rightpocket-UPFall_ankle UPFall_ankle-UPFall_belt'
+
+
+tasks_list='UPFall_rightpocket-UPFall_neck UPFall_rightpocket-UPFall_wrist UPFall_rightpocket-UPFall_belt UPFall_rightpocket-UPFall_ankle UPFall_ankle-UPFall_belt'
+
 
 echo '=================================running stage 2 [early stop at lowest total loss for each pos combination, HP search]================================='
 
