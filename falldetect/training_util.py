@@ -35,7 +35,7 @@ import torch.nn.functional as F
 # λ = 0.31 #ref: DANN paper page 19
 # λ = 1
 
-def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, λ, training_mode):
+def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, domain_criterion, optimizer, λ, training_mode, ADL_only):
   dann.train()
 
   total_train_loss = 0
@@ -58,6 +58,9 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
   tgt_FP = 0
   tgt_TN = 0
   tgt_FN = 0
+    
+  src_domain_size = 0
+  tgt_domain_size = 0
 
   for i, (sdata, tdata) in enumerate(zip(src_loader, tgt_loader)):
     src_data, src_labels = sdata
@@ -94,9 +97,42 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
     out_sigmoid = torch.sigmoid(tgt_domain_out).data.detach().cpu().numpy()
     tgt_domain_pred = np.argmax(out_sigmoid, 1)
 
-    src_domain_loss = domain_criterion(src_domain_out, src_domain_labels)
-    tgt_domain_loss = domain_criterion(tgt_domain_out, tgt_domain_labels)
-    domain_loss = src_domain_loss + tgt_domain_loss
+    
+    
+    ## TODO: double check
+    if ADL_only == False:
+        src_domain_loss = domain_criterion(src_domain_out, src_domain_labels)
+        tgt_domain_loss = domain_criterion(tgt_domain_out, tgt_domain_labels)
+        src_domain_size += src_labels.size()[0] 
+        tgt_domain_size += tgt_labels.size()[0]
+        src_domain_loss_scale = 1
+        tgt_domain_loss_scale = 1
+    else:
+        
+        if (src_labels==0).sum() == 0:
+            src_domain_loss = torch.tensor(0).to(device).long()
+            src_domain_loss_scale = 0
+        else:
+            src_domain_loss = domain_criterion(src_domain_out[src_labels==0], src_domain_labels[src_labels==0])
+            src_domain_size += (src_labels==1).data.detach().cpu().numpy().sum()
+            src_domain_loss_scale = (src_labels==1).data.detach().cpu().numpy().sum() / src_labels.size()[0] 
+        if (tgt_labels==0).sum() == 0:
+            tgt_domain_loss = torch.tensor(0).to(device).long()
+            tgt_domain_loss_scale = 0
+        else:
+            tgt_domain_loss = domain_criterion(tgt_domain_out[tgt_labels==0], tgt_domain_labels[tgt_labels==0])
+            tgt_domain_size += (tgt_labels==1).data.detach().cpu().numpy().sum()
+            tgt_domain_loss_scale = (tgt_labels==1).data.detach().cpu().numpy().sum() / tgt_labels.size()[0] 
+
+    
+#     print(src_domain_loss, src_domain_loss.shape)
+#     aaa =  torch.tensor(0).to(device).long()
+#     print('aaa', aaa)
+
+#     sys.exit()
+    
+    domain_loss = src_domain_loss*src_domain_loss_scale + tgt_domain_loss*tgt_domain_loss_scale
+
 
     if training_mode == 'dann':
       train_loss = src_class_loss + λ * domain_loss
@@ -104,6 +140,14 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
     else:
       train_loss = src_class_loss
 
+    
+#     print(src_labelss, tgt_labels, src_domain_out, src_domain_labels)
+#     print(src_labels==0, tgt_labels==0)
+#     print(src_domain_loss, tgt_domain_loss, domain_loss, src_class_loss, train_loss)
+    
+    
+    
+    
     # Backward and optimize
     optimizer.zero_grad()
     train_loss.backward()
@@ -204,7 +248,7 @@ def train_epoch_dann(src_loader, tgt_loader, device, dann, class_criterion, doma
 
 def val_epoch_dann(src_loader, tgt_loader, device, 
                      dann,
-                     class_criterion, domain_criterion, λ, training_mode):
+                     class_criterion, domain_criterion, λ, training_mode, ADL_only):
 
   dann.eval()
 
@@ -382,11 +426,13 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
   extractor_type = training_params['extractor_type']
   device = training_params['device']
   show_diagnosis_plt = training_params['show_diagnosis_plt']
+  ADL_only = training_params['ADL_only']
 
   df_performance = pd.DataFrame(0, index=np.arange(CV_n), 
                                 columns=['i_CV', 
 							 'val_src_acc','val_tgt_acc',
 							 'val_src_sensitivity','val_tgt_sensitivity',
+							 'val_src_specificity','val_tgt_specificity',
 							 'val_src_precision','val_tgt_precision',
 							 'val_src_F1','val_tgt_F1',
 							 'val_domain_acc', 'PAD', 'epoch_optimal', 'total_loss'])
@@ -475,15 +521,15 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
     for epoch in range(num_epochs):
       _ = train_epoch_dann(src_train_loader, tgt_train_loader, device, 
                                           model, 
-                                          class_criterion, domain_criterion, optimizer, λ, training_mode)
+                                          class_criterion, domain_criterion, optimizer, λ, training_mode, ADL_only)
 	
       train_performance_dict_list[epoch] = val_epoch_dann(src_train_loader_eval, tgt_train_loader_eval, device, 
                                       model,
-                                      class_criterion, domain_criterion, λ, training_mode)
+                                      class_criterion, domain_criterion, λ, training_mode, ADL_only)
 	
       val_performance_dict_list[epoch] = val_epoch_dann(src_val_loader, tgt_val_loader, device, 
                                       model,
-                                      class_criterion, domain_criterion, λ, training_mode)
+                                      class_criterion, domain_criterion, λ, training_mode, ADL_only)
 
       PAD = get_PAD(src_train_loader, tgt_train_loader, src_val_loader, tgt_val_loader, model, device, c=3000)
       PAD_list[epoch] = PAD
@@ -523,11 +569,13 @@ def DannModel_fitting(training_params, src_name, tgt_name, i_rep, inputdir, outp
     df_performance.loc[i_CV,['i_CV', 
 							 'val_src_acc','val_tgt_acc',
 							 'val_src_sensitivity','val_tgt_sensitivity',
+							 'val_src_specificity','val_tgt_specificity',
 							 'val_src_precision','val_tgt_precision',
 							 'val_src_F1','val_tgt_F1',
 							 'val_domain_acc', 'PAD', 'epoch_optimal', 'total_loss']] = [i_CV, 
 												   val_performance_dict_list[epoch_optimal]['src_acc'], val_performance_dict_list[epoch_optimal]['tgt_acc'], 
 												   val_performance_dict_list[epoch_optimal]['src_sensitivity'], val_performance_dict_list[epoch_optimal]['tgt_sensitivity'], 
+												   val_performance_dict_list[epoch_optimal]['src_specificity'], val_performance_dict_list[epoch_optimal]['tgt_specificity'], 
 												   val_performance_dict_list[epoch_optimal]['src_precision'], val_performance_dict_list[epoch_optimal]['tgt_precision'], 
 												   val_performance_dict_list[epoch_optimal]['src_F1'], val_performance_dict_list[epoch_optimal]['tgt_F1'], 
 												   val_performance_dict_list[epoch_optimal]['domain_acc'], PAD_list[epoch_optimal], epoch_optimal, val_performance_dict_list[epoch_optimal]['total_loss']]
@@ -658,6 +706,7 @@ def performance_table(src_name, tgt_name, training_params, i_rep, inputdir, outp
 # TODO combine the get function and dict
   df_performance_table_acc = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'acc', time_elapsed)
   df_performance_table_sensitivity = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'sensitivity', time_elapsed)
+  df_performance_table_specificity = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'specificity', time_elapsed)
   df_performance_table_precision = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'precision', time_elapsed)
   df_performance_table_F1 = get_df_performance_table(df_performance_dann, df_performance_src, df_performance_tgt, training_params, 'F1', time_elapsed)
 
@@ -665,6 +714,7 @@ def performance_table(src_name, tgt_name, training_params, i_rep, inputdir, outp
   df_dict = {
     'df_acc': df_performance_table_acc,
     'df_sensitivity': df_performance_table_sensitivity,
+    'df_specificity': df_performance_table_specificity,
     'df_precision': df_performance_table_precision,
     'df_F1': df_performance_table_F1,
   }    

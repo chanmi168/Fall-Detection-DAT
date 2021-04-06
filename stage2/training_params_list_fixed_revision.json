@@ -9,6 +9,6 @@
     "dropout": 0.5,
     "show_diagnosis_plt": true,
     "use_WeightedRandomSampler": true,
-    "ADL_only": false
+    "ADL_only": true
   }
 ]

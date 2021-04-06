@@ -12,13 +12,6 @@
 # In[1]:
 
 
-# from google.colab import drive
-# drive.mount('drive')
-
-
-# In[2]:
-
-
 import numpy as np
 
 import pandas as pd
@@ -64,7 +57,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-# In[3]:
+# In[2]:
 
 
 # from torch.utils.data import Dataset, DataLoader
@@ -79,7 +72,7 @@ import torch.nn.functional as F
 # # Get user inputs
 # In ipython notebook, these are hardcoded. In production python code, use parsers to provide these inputs
 
-# In[4]:
+# In[3]:
 
 
 parser = argparse.ArgumentParser(description='FD_DAT')
@@ -116,32 +109,34 @@ parser.add_argument('--use_WeightedRandomSampler', metavar='use_WeightedRandomSa
 # args = parser.parse_args(['--input_folder', '../../data_mic/stage1/preprocessed_18hz_5fold', 
 #                           '--output_folder', '../../data_mic/stage2/test',
 # #                           '--training_params_file', 'training_params_list_v1.json',
-#                           '--training_params_file', 'training_params_list_fixed.json',
+#                           '--training_params_file', 'training_params_list_fixed_revision.json',
+# #                           '--training_params_file', 'training_params_list_HPsearch.json',
 #                           '--extractor_type', 'CNN',
-#                           '--num_epochs', '15',
+#                           '--num_epochs', '10',
 #                           '--CV_n', '2',
 #                           '--rep_n', '2',
 #                           '--show_diagnosis_plt', 'True',
 #                           '--use_WeightedRandomSampler', 'True',
-#                           '--tasks_list', 'UMAFall_leg-UPFall_rightpocket UPFall_rightpocket-UMAFall_leg',])
-#                           '--tasks_list', 'FARSEEING_thigh-FARSEEING_lowback FARSEEING_lowback-FARSEEING_thigh',])
+# #                           '--tasks_list', 'UMAFall_wrist-UPFall_wrist UPFall_wrist-UMAFall_wrist',])
+#                           '--tasks_list', 'UMAFall_ankle-UPFall_ankle UMAFall_leg-UPFall_rightpocket UPFall_rightpocket-UMAFall_leg',])
+# #                           '--tasks_list', 'FARSEEING_thigh-FARSEEING_lowback FARSEEING_lowback-FARSEEING_thigh',])
                           
 args = parser.parse_args()
 
 
-# In[5]:
+# In[4]:
 
 
 print(args)
 
 
-# In[6]:
+# In[5]:
 
 
 args.show_diagnosis_plt
 
 
-# In[7]:
+# In[6]:
 
 
 home_dir = home+'/project_FDDAT/'
@@ -182,10 +177,10 @@ if not os.path.exists(outputdir):
 device = torch.device('cuda:{}'.format(int(cuda_i)) if torch.cuda.is_available() else 'cpu')
 
 
-# In[8]:
+# In[ ]:
 
 
-inputdir
+
 
 
 # In[ ]:
@@ -196,7 +191,7 @@ inputdir
 
 # # new arch HP search
 
-# In[9]:
+# In[7]:
 
 
 # training_params_list = [
@@ -351,7 +346,7 @@ inputdir
 
 
 
-# In[10]:
+# In[8]:
 
 
 with open(training_params_file) as json_file:
@@ -366,12 +361,14 @@ for training_params in training_params_list:
     training_params['device'] = device
     training_params['show_diagnosis_plt'] = show_diagnosis_plt
     training_params['use_WeightedRandomSampler'] = use_WeightedRandomSampler
+    
+    
 
 
 # In[11]:
 
 
-training_params_list
+training_params
 
 
 # In[ ]:
@@ -380,7 +377,7 @@ training_params_list
 
 
 
-# In[12]:
+# In[9]:
 
 
 def run_rep(df_metric_keys, tgt_name, training_params, inputdir, task_outputdir, rep_n=5):
@@ -414,11 +411,11 @@ def run_rep(df_metric_keys, tgt_name, training_params, inputdir, task_outputdir,
 
 
 
-# In[13]:
+# In[10]:
 
 
 # fine-tuning
-df_metric_keys = ['df_acc', 'df_sensitivity', 'df_precision', 'df_F1']
+df_metric_keys = ['df_acc', 'df_sensitivity', 'df_specificity', 'df_precision', 'df_F1']
 
 for task_item in tasks_list:
     (src_name, tgt_name) = task_item
@@ -430,7 +427,7 @@ for task_item in tasks_list:
 
     df_sample = pd.DataFrame('', index=['channel_n', 'batch_size', 'learning_rate', 
                                               'source', 'DANN', 'target', 'domain', 'time_elapsed', 'num_params', 'PAD_source', 'PAD_DANN'], columns=[])
-    df_dict_agg_HP = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
+    df_dict_agg_HP = dict( zip(df_metric_keys,[df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy(), df_sample.copy()]))
 
     # 1. try all HP
     for i, training_params in enumerate(training_params_list):
@@ -449,7 +446,7 @@ for task_item in tasks_list:
 
 
 
-# In[14]:
+# In[ ]:
 
 
 # def get_rep_stats2(df_performance_table_agg, rep_n):
@@ -475,7 +472,7 @@ for task_item in tasks_list:
 # get_rep_stats2(df_dict_agg_rep[df_name], rep_n)
 
 
-# In[15]:
+# In[ ]:
 
 
 # precision=np.asarray(range(100))/100
@@ -483,30 +480,6 @@ for task_item in tasks_list:
 # F1 = 2 * (precision * sensitivity) / (precision + sensitivity)
 # F1
 # # plt.plot(np.asarray(range(100))/100, F1)
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
 
 
 # In[ ]:

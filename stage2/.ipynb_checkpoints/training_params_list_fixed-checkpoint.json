@@ -8,6 +8,7 @@
     "λ": 1,
     "dropout": 0.5,
     "show_diagnosis_plt": true,
-    "use_WeightedRandomSampler": True,
+    "use_WeightedRandomSampler": true,
+    "ADL_only": false
   }
 ]
